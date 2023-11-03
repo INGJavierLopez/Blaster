@@ -26,7 +26,7 @@ void UCombatComponent::BeginPlay()
 void UCombatComponent::SetAiming(bool bIsAiming)
 {
 	bAiming = bIsAiming;
-	ServerSetAiming(bIsAiming);
+	ServerSetAiming(bIsAiming);//Replicar en el servidor
 }
 
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
