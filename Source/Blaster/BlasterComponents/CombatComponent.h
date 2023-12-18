@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "CombatComponent.generated.h"
 
+#define TRACE_LENGTH 80000
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class BLASTER_API UCombatComponent : public UActorComponent
@@ -30,6 +31,16 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
+	void FireButtonPressed(bool bPressed);
+
+	UFUNCTION(Server,Reliable)
+	void ServerFire(const FVector_NetQuantize& TraceHitTarget); //Replicada en el servidor
+
+	UFUNCTION(NetMulticast,Reliable)
+	void MulticastFire(const FVector_NetQuantize& TraceHitTarget); //Servidor replica a todos los clientes
+
+	void TraceUnderCrossHairs(FHitResult& TraceHitResult);
+
 private:
 	class ABlasterCharacter* Character;
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
@@ -37,6 +48,14 @@ private:
 
 	UPROPERTY(Replicated)
 	bool bAiming;
+
+	UPROPERTY(EditAnywhere)
+	float BaseWalkSpeed;
+
+	UPROPERTY(EditAnywhere)
+	float AimWalkSpeed;
+
+	bool BFireButtonPressed;
 
 public:	
 	
