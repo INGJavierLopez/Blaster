@@ -33,11 +33,23 @@ private:
 	
 	class UParticleSystemComponent* TracerComponent;
 
+	//Particles
 	UPROPERTY(EditAnywhere)
+	UParticleSystem* TerrainImpactParticles;
+	UPROPERTY(EditAnywhere)
+	//UParticleSystem* BodyImpactParticles;
+	class UNiagaraSystem* NiagaraBodyImpact;
+	bool HitCharacter;
+
 	UParticleSystem* ImpactParticles;
 
+	//Sound
 	UPROPERTY(EditAnywhere)
+	class USoundCue* BodyImpactSound;
+	UPROPERTY(EditAnywhere)
+	class USoundCue* TerrainImpactSound;
 	class USoundCue* ImpactSound;
+
 public:	
 
 };

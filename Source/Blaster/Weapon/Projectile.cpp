@@ -8,6 +8,11 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundCue.h"
+#include "Blaster/Character/BlasterCharacter.h"
+#include "Blaster/Blaster.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h" // Incluye el header de NiagaraFunctionLibrary si es necesario
+
 
 AProjectile::AProjectile()
 {
@@ -20,7 +25,8 @@ AProjectile::AProjectile()
 	CollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	CollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
-	
+	CollisionBox->SetCollisionResponseToChannel(ECC_SkeletalMesh, ECollisionResponse::ECR_Block);
+
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
 	ProjectileMovementComponent->bRotationFollowsVelocity = true;
 }
@@ -49,7 +55,19 @@ void AProjectile::BeginPlay()
 
 void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	
+	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
+	if (BlasterCharacter)
+	{
+		BlasterCharacter->MulticastHit();
+		HitCharacter = true;
+		ImpactSound = BodyImpactSound;
+	}
+	else
+	{
+		HitCharacter = false;
+		ImpactParticles = TerrainImpactParticles;
+		ImpactSound = TerrainImpactSound;
+	}
 	Destroy();
 }
 
@@ -62,9 +80,21 @@ void AProjectile::Tick(float DeltaTime)
 void AProjectile::Destroyed()
 {
 	Super::Destroyed();
-	if (ImpactParticles)
+	if (HitCharacter)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, GetActorTransform());
+		if (NiagaraBodyImpact)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), NiagaraBodyImpact, GetActorLocation());
+
+		}
+	}
+	else 
+	{
+		if (ImpactParticles)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, GetActorTransform());
+
+		}
 	}
 	if (ImpactSound)
 	{

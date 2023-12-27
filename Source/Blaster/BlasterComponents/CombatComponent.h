@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Blaster/HUD/BlasterHUD.h"
 #include "CombatComponent.generated.h"
 
 #define TRACE_LENGTH 80000
@@ -33,6 +34,8 @@ protected:
 
 	void FireButtonPressed(bool bPressed);
 
+	void Fire();
+
 	UFUNCTION(Server,Reliable)
 	void ServerFire(const FVector_NetQuantize& TraceHitTarget); //Replicada en el servidor
 
@@ -41,8 +44,14 @@ protected:
 
 	void TraceUnderCrossHairs(FHitResult& TraceHitResult);
 
+
+	void SetHUDCrosshairs(float DeltaTime);
 private:
+
 	class ABlasterCharacter* Character;
+	class ABlasterPlayerController* Controller;
+	class ABlasterHUD* HUD;
+
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;
 
@@ -57,6 +66,45 @@ private:
 
 	bool BFireButtonPressed;
 
+	/**
+	* HUD and crosshair
+	*/
+
+	float CrosshairVelocityFactor;
+	float CrosshairInAirFactor;
+	float CrosshairAimFactor;
+	float CrosshairShootingFactor;
+	float CrosshairOnTargetFactor;
+
+	bool bOnTargetFocused;
+
+	FHUDPackage HUDPackage;
+
+	FVector HitTarget;
+
+	/**
+	*  Aiming and FOW
+	*/
+	//field of view while not aiming
+	float DefaultFOV;
+	UPROPERTY(EditAnywhere, Category = Combat)
+	float ZoomedFOV = 30.f;
+
+	float CurrentFOV;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	float ZoomInterpSpeed = 20.f;
+
+	void InterpFOV(float DeltaTime);
+	/*
+	* Automatic Fire
+	*/
+
+	FTimerHandle FireTimer;
+	bool bCanFire = true;
+
+	void StartFireTimer();
+	void FireTimerFinished();
 public:	
 	
 
