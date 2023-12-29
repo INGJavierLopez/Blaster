@@ -58,17 +58,15 @@ void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimi
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacter)
 	{
-		BlasterCharacter->MulticastHit();
-		HitCharacter = true;
+		bHitCharacter = true;
 		ImpactSound = BodyImpactSound;
 	}
 	else
 	{
-		HitCharacter = false;
+		bHitCharacter = false;
 		ImpactParticles = TerrainImpactParticles;
 		ImpactSound = TerrainImpactSound;
 	}
-	Destroy();
 }
 
 void AProjectile::Tick(float DeltaTime)
@@ -80,7 +78,7 @@ void AProjectile::Tick(float DeltaTime)
 void AProjectile::Destroyed()
 {
 	Super::Destroyed();
-	if (HitCharacter)
+	if (bHitCharacter)
 	{
 		if (NiagaraBodyImpact)
 		{

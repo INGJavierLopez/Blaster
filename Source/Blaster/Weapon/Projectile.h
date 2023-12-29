@@ -21,6 +21,10 @@ protected:
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse,const FHitResult& Hit);
 
+	UPROPERTY(EditAnywhere)
+	float Damage = 20;
+
+	bool bHitCharacter;
 private:
 	UPROPERTY(EditAnywhere)
 	class UBoxComponent* CollisionBox;
@@ -39,7 +43,7 @@ private:
 	UPROPERTY(EditAnywhere)
 	//UParticleSystem* BodyImpactParticles;
 	class UNiagaraSystem* NiagaraBodyImpact;
-	bool HitCharacter;
+
 
 	UParticleSystem* ImpactParticles;
 

@@ -20,14 +20,15 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
 	void PlayFireMontage(bool bAiming);
-
-	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastHit();
-
+	void PlayElimMontage();
 	virtual void OnRep_ReplicatedMovement() override;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Elim();
 
 protected:
 	virtual void BeginPlay() override;
+
 
 	void MoveForward(float Value);
 	void MoveRight(float Value);
@@ -44,6 +45,9 @@ protected:
 	void FireButtonPressed();
 	void FireButtonReleased();
 	void PlayHitReactMontage();
+	UFUNCTION()
+	void RecieveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
+	void UpdateHUDHealth();
 
 private:
 	UPROPERTY(VisibleAnywhere,Category = Camera)
@@ -80,6 +84,8 @@ private:
 	class UAnimMontage* FireWeaponMontage;
 	UPROPERTY(EditAnywhere, Category = Combat)
 	class UAnimMontage* HitReactMontage;
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* ElimMontage;
 
 	void HideCameraIfCharacterClose();
 
@@ -95,17 +101,21 @@ private:
 	float ProxyYaw;
 	float TimeSinceLastMovementReplication;
 	float CalculateSpeed();
+
+
 	/**
 	* Player Health
 	*/
-	UPROPERTY(EditAnywhere, Category = "Player starts")
+	UPROPERTY(EditAnywhere, Category = "Player stats")
 	float MaxHealth = 100.f;
-	UPROPERTY(ReplicatedUsing = OnRep_Health,VisibleAnywhere, Category = "Player starts")
+	UPROPERTY(ReplicatedUsing = OnRep_Health,VisibleAnywhere, Category = "Player stats")
 	float Health = 100.f;
 	UFUNCTION()
 	void OnRep_Health();
 
 	class ABlasterPlayerController* BlasterPlayerController;
+
+	bool bElimmed = false;
 public:	
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -121,4 +131,6 @@ public:
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
+	FORCEINLINE bool IsElimmed() const { return bElimmed; }
+
 };	

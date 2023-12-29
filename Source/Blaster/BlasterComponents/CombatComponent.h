@@ -64,7 +64,7 @@ private:
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
 
-	bool BFireButtonPressed;
+	bool bFireButtonPressed;
 
 	/**
 	* HUD and crosshair

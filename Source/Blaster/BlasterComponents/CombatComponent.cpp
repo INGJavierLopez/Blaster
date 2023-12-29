@@ -82,6 +82,8 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 			Start += CrosshairWorldDirection * (DistanceToCharacter + 30.f);
 		}
 		FVector End = Start + CrosshairWorldDirection * TRACE_LENGTH;
+		//DrawDebugLine(GetWorld(), Start, End, FColor::Red,false,1.f);
+
 		GetWorld()->LineTraceSingleByChannel(
 			TraceHitResult,
 			Start,
@@ -121,7 +123,7 @@ void UCombatComponent::FireTimerFinished()
 {
 	if (!EquippedWeapon) return;
 	bCanFire = true;
-	if (BFireButtonPressed && EquippedWeapon->bAutomatic)
+	if (bFireButtonPressed && EquippedWeapon->bAutomatic)
 	{
 		Fire();
 	}
@@ -129,10 +131,13 @@ void UCombatComponent::FireTimerFinished()
 
 void UCombatComponent::FireButtonPressed(bool bPressed) //llamado desde cliente hacia el servidor
 {
-	BFireButtonPressed = bPressed;
-	if (BFireButtonPressed)
+	if (EquippedWeapon)
 	{
-		Fire();
+		bFireButtonPressed = bPressed;
+		if (bFireButtonPressed)
+		{
+			Fire();
+		}
 	}
 }
 
