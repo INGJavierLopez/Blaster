@@ -27,6 +27,8 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	//Registrar las replicaciones Clase | Variable
 	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 	DOREPLIFETIME(UCombatComponent, bAiming);
+	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo,COND_OwnerOnly);
+
 }
 
 void UCombatComponent::BeginPlay()
@@ -82,7 +84,7 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 			Start += CrosshairWorldDirection * (DistanceToCharacter + 30.f);
 		}
 		FVector End = Start + CrosshairWorldDirection * TRACE_LENGTH;
-		//DrawDebugLine(GetWorld(), Start, End, FColor::Red,false,1.f);
+		//DrawDebugLine(GetWorld(), Start, End, FColor::Green,false,1.f);
 
 		GetWorld()->LineTraceSingleByChannel(
 			TraceHitResult,
@@ -104,6 +106,9 @@ void UCombatComponent::TraceUnderCrossHairs(FHitResult& TraceHitResult)
 			bOnTargetFocused = false;
 			HUDPackage.CrosshairsColor = FLinearColor::White;
 		}
+		//DrawDebugSphere(GetWorld(), Start, 12.f, 12.f, FColor::Red, false, 3.f);
+		//DrawDebugSphere(GetWorld(), TraceHitResult.ImpactPoint, 12.f, 12.f, FColor::Black, false, 3.f);
+
 	}
 }
 
@@ -129,6 +134,17 @@ void UCombatComponent::FireTimerFinished()
 	}
 }
 
+bool UCombatComponent::CanFire()
+{
+	if(!EquippedWeapon) return false;
+	return !EquippedWeapon->IsEmpty() || !bCanFire;
+}
+
+void UCombatComponent::OnRep_CarriedAmmo()
+{
+
+}
+
 void UCombatComponent::FireButtonPressed(bool bPressed) //llamado desde cliente hacia el servidor
 {
 	if (EquippedWeapon)
@@ -143,14 +159,16 @@ void UCombatComponent::FireButtonPressed(bool bPressed) //llamado desde cliente 
 
 void UCombatComponent::Fire()
 {
-	if (!bCanFire) return;
-	bCanFire = false;
-	ServerFire(HitTarget); //se hace la replicacion al servidor
-	if (EquippedWeapon)
+	if (CanFire())
 	{
-		CrosshairShootingFactor = 0.75f;
+		bCanFire = false;
+		ServerFire(HitTarget); //se hace la replicacion al servidor
+		if (EquippedWeapon)
+		{
+			CrosshairShootingFactor = 0.75f;
+		}
+		StartFireTimer();
 	}
-	StartFireTimer();
 }
 
 void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
@@ -171,6 +189,10 @@ void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& T
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 {
 	if (!Character || !WeaponToEquip) return;
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Dropped();
+	}
 	EquippedWeapon = WeaponToEquip;
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 	//Bindear el arma a la mano del personaje
@@ -180,6 +202,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 		HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
 	}
 	EquippedWeapon->SetOwner(Character);
+	EquippedWeapon->SetHUDAmmo();
 	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 	Character->bUseControllerRotationYaw = true;
 }
@@ -188,6 +211,13 @@ void UCombatComponent::OnRep_EquippedWeapon()
 {
 	if (EquippedWeapon && Character)
 	{
+		EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		//Bindear el arma a la mano del personaje
+		const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(FName("RightHandSocket"));
+		if (HandSocket)
+		{
+			HandSocket->AttachActor(EquippedWeapon, Character->GetMesh());
+		}
 		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
 		Character->bUseControllerRotationYaw = true;
 	}

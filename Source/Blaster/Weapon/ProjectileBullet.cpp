@@ -7,18 +7,15 @@
 
 void AProjectileBullet::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	Super::OnHit(HitComp, OtherActor, OtherComp, NormalImpulse, Hit);
+
 	ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
 	if (OwnerCharacter)
 	{
 		AController* OwnerController = OwnerCharacter->Controller;
 		if (OwnerController)
 		{
-			if (bHitCharacter)
-			{
-				UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
-			}
+			UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
 		}
 	}
-	Destroy();
+	Super::OnHit(HitComp, OtherActor, OtherComp, NormalImpulse, Hit);
 }

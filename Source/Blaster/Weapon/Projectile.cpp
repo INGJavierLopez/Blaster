@@ -10,8 +10,6 @@
 #include "Sound/SoundCue.h"
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/Blaster.h"
-#include "NiagaraComponent.h"
-#include "NiagaraFunctionLibrary.h" // Incluye el header de NiagaraFunctionLibrary si es necesario
 
 
 AProjectile::AProjectile()
@@ -64,39 +62,31 @@ void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimi
 	else
 	{
 		bHitCharacter = false;
-		ImpactParticles = TerrainImpactParticles;
 		ImpactSound = TerrainImpactSound;
 	}
+	MulticastHit(Hit.ImpactPoint);
+	Destroy();
+}
+
+
+
+void AProjectile::MulticastHit_Implementation(FVector HitLocation)
+{
+	if (ImpactParticles)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, FTransform(HitLocation));
+
+	}
+	if (ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, HitLocation);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Particles spotted?"))
 }
 
 void AProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
-void AProjectile::Destroyed()
-{
-	Super::Destroyed();
-	if (bHitCharacter)
-	{
-		if (NiagaraBodyImpact)
-		{
-			UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), NiagaraBodyImpact, GetActorLocation());
-
-		}
-	}
-	else 
-	{
-		if (ImpactParticles)
-		{
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, GetActorTransform());
-
-		}
-	}
-	if (ImpactSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
-	}
-}
 

@@ -14,7 +14,6 @@ class BLASTER_API AProjectile : public AActor
 public:	
 	AProjectile();
 	virtual void Tick(float DeltaTime) override;
-	virtual void Destroyed() override;
 protected:
 	virtual void BeginPlay() override;
 
@@ -25,6 +24,9 @@ protected:
 	float Damage = 20;
 
 	bool bHitCharacter;
+	//este es el segundo
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastHit(FVector HitLocation);
 private:
 	UPROPERTY(EditAnywhere)
 	class UBoxComponent* CollisionBox;
@@ -34,17 +36,12 @@ private:
 	
 	UPROPERTY(EditAnywhere)
 	class UParticleSystem* Tracer;
-	
+
+	UPROPERTY()
 	class UParticleSystemComponent* TracerComponent;
 
 	//Particles
 	UPROPERTY(EditAnywhere)
-	UParticleSystem* TerrainImpactParticles;
-	UPROPERTY(EditAnywhere)
-	//UParticleSystem* BodyImpactParticles;
-	class UNiagaraSystem* NiagaraBodyImpact;
-
-
 	UParticleSystem* ImpactParticles;
 
 	//Sound
@@ -53,6 +50,8 @@ private:
 	UPROPERTY(EditAnywhere)
 	class USoundCue* TerrainImpactSound;
 	class USoundCue* ImpactSound;
+	FTimerHandle TimerDestroy;
+	float DestroyDelay = 3.f;
 
 public:	
 
