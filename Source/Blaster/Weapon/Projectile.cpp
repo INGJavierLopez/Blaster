@@ -49,6 +49,7 @@ void AProjectile::BeginPlay()
 	{
 		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);
 	}
+	ImpactSound = TerrainImpactSound;
 }
 
 void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
@@ -81,12 +82,16 @@ void AProjectile::MulticastHit_Implementation(FVector HitLocation)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, HitLocation);
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Particles spotted?"))
 }
 
 void AProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void AProjectile::Destroyed()
+{
+	Super::Destroy();
 }
 
 
