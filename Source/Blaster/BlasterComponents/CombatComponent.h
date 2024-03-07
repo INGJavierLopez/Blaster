@@ -29,6 +29,11 @@ public:
 
 	void FireButtonPressed(bool bPressed);
 
+	UFUNCTION(BlueprintCallable)
+	void ShotgunShellReload();
+
+	void JumpToShotgunEnd();
+
 protected:
 	virtual void BeginPlay() override;
 	void SetAiming(bool bIsAiming);
@@ -152,6 +157,9 @@ private:
 	UPROPERTY(EditAnywhere)
 	int32 StartingSniperAmmo = 6;
 
+	UPROPERTY(EditAnywhere)
+	int32 StartingGrenadeLauncherAmmo = 2;
+
 	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
 	ECombatState CombatState = ECombatState::ECS_Unoccupied;
 
@@ -160,6 +168,7 @@ private:
 
 	void UpdateAmmoValues();
 
+	void UpdateShotgunAmmoValues();
 public:	
 	
 };

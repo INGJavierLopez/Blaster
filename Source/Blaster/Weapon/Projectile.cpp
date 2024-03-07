@@ -9,12 +9,14 @@
 #include "Sound/SoundCue.h"
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/Blaster.h"
-
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 
 AProjectile::AProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
+
 	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
 	SetRootComponent(CollisionBox);
 	CollisionBox->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
@@ -28,7 +30,7 @@ AProjectile::AProjectile()
 void AProjectile::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	if (Tracer)
 	{
 		TracerComponent = UGameplayStatics::SpawnEmitterAttached(
@@ -38,56 +40,92 @@ void AProjectile::BeginPlay()
 			GetActorLocation(),
 			GetActorRotation(),
 			EAttachLocation::KeepWorldPosition
-			);
+		);
 	}
 
 	if (HasAuthority())
 	{
 		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);
 	}
-	ImpactSound = TerrainImpactSound;
 }
 
 void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacter)
-	{
-		bHitCharacter = true;
-		ImpactSound = BodyImpactSound;
-	}
-	else
-	{
-		bHitCharacter = false;
-		ImpactSound = TerrainImpactSound;
-	}
-	MulticastHit(Hit.ImpactPoint);
 	Destroy();
 }
 
-
-
-void AProjectile::MulticastHit_Implementation(FVector HitLocation)
+void AProjectile::SpawnTrailSystem()
 {
-	if (ImpactParticles)
+	if (TrailSystem)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, FTransform(HitLocation));
-
+		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			TrailSystem,
+			GetRootComponent(),
+			FName(),
+			GetActorLocation(),
+			GetActorRotation(),
+			EAttachLocation::KeepWorldPosition,
+			false
+		);
 	}
-	if (ImpactSound)
+}
+
+void AProjectile::ExplodeDamage()
+{
+	APawn* FiringPawn = GetInstigator();
+	if (FiringPawn && HasAuthority())
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, HitLocation);
+		AController* FiringController = FiringPawn->GetController();
+		if (FiringController)
+		{
+			UGameplayStatics::ApplyRadialDamageWithFalloff(
+				this, // World context object
+				Damage, // BaseDamage
+				10.f, // MinimumDamage
+				GetActorLocation(), // Origin
+				DamageInnerRadius, // DamageInnerRadius
+				DamageOuterRadius, // DamageOuterRadius
+				1.f, // DamageFalloff
+				UDamageType::StaticClass(), // DamageTypeClass
+				TArray<AActor*>(), // IgnoreActors
+				this, // DamageCauser
+				FiringController // InstigatorController
+			);
+		}
 	}
 }
 
 void AProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+}
+
+void AProjectile::StartDestroyTimer()
+{
+	GetWorldTimerManager().SetTimer(
+		DestroyTimer,
+		this,
+		&AProjectile::DestroyTimerFinished,
+		DestroyTime
+	);
+}
+
+void AProjectile::DestroyTimerFinished()
+{
+	Destroy();
 }
 
 void AProjectile::Destroyed()
 {
-	Super::Destroy();
+	Super::Destroyed();
+
+	if (ImpactParticles)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, GetActorTransform());
+	}
+	if (ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
+	}
 }
-
-
