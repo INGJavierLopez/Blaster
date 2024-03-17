@@ -34,6 +34,17 @@ public:
 
 	void JumpToShotgunEnd();
 
+	UFUNCTION(BlueprintCallable)
+	void ThrowGrenadeFinished();
+
+	UFUNCTION(BlueprintCallable)
+	void LaunchGrenade();
+
+	UFUNCTION(Server,Reliable)
+	void ServerLaunchGrenade(const FVector_NetQuantize& Target);
+
+	void PickupAmmo(EWeaponType WeaponType,int32 AmmoAmount);
+
 protected:
 	virtual void BeginPlay() override;
 	void SetAiming(bool bIsAiming);
@@ -44,6 +55,8 @@ protected:
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
+	void PlayEquipWeaponSound();
+
 
 	void Fire();
 
@@ -53,7 +66,7 @@ protected:
 	UFUNCTION(NetMulticast,Reliable)
 	void MulticastFire(const FVector_NetQuantize& TraceHitTarget); //Servidor replica a todos los clientes
 
-	void TraceUnderCrossHairs(FHitResult& TraceHitResult);
+	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 
 
 	void SetHUDCrosshairs(float DeltaTime);
@@ -64,9 +77,29 @@ protected:
 	void HandleReload();
 	
 	int32 AmountToReload();
+
+
+	void ThrowGrenade();
+
+	UFUNCTION(Server, Reliable)
+	void ServerThrowGrenade();
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class AProjectile> GrenadeClass;
+
+
+	void DropEquippedWeapon();
+
+	void AttachActorToRightHand(AActor* ActorToAttach);
+	void AttachActorToLeftHand(AActor* ActorToAttach);
+
+
+	void UpdateCarriedAmmo();
+	void ShowAttachedGrenade(bool bShowGrenade);
 private:
 	UPROPERTY()
 	class ABlasterCharacter* Character;
+
 	UPROPERTY()
 	class ABlasterPlayerController* Controller;
 	UPROPERTY()
@@ -137,6 +170,9 @@ private:
 
 	TMap<EWeaponType, int32> CarriedAmmoMap;
 
+	UPROPERTY(EditAnywhere)
+	int32 MaxCarriedAmmo = 500;
+
 	void InitializeCarriedAmmo();
 
 	UPROPERTY(EditAnywhere)
@@ -169,6 +205,19 @@ private:
 	void UpdateAmmoValues();
 
 	void UpdateShotgunAmmoValues();
+
+
+	UPROPERTY(ReplicatedUsing = OnRep_Grenades) //especificar que para esta variable se replicara utilizando esta funcion
+	int32 Grenades = 4; //Variable replicada, cada vez que se actualiza notificar
+
+	UFUNCTION() //Importante utilizar la macro UFUNCTION
+	void OnRep_Grenades(); //Funcion que se llamara cada replicacion
+
+	UPROPERTY(EditAnywhere)
+	int32 MaxGrenades = 4;
+
+	void UpdateHUDGrenades();
+
 public:	
-	
+	FORCEINLINE int32 GetGrenades() const { return Grenades; }
 };
