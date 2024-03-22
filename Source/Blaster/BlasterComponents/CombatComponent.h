@@ -23,6 +23,8 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void EquipWeapon(class AWeapon* WeaponToEquip);
+	void SwapWeapons();
+	void ReloadEmptyWeapon();
 	void Reload();
 	UFUNCTION(BlueprintCallable)
 	void FinishReloading();
@@ -52,10 +54,14 @@ protected:
 	UFUNCTION(Server,Reliable)
 	void ServerSetAiming(bool bIsAiming);
 	
+	//Rep Notify
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
 
-	void PlayEquipWeaponSound();
+	UFUNCTION()
+	void OnRep_SecondaryWeapon();
+
+	void PlayEquipWeaponSound(AWeapon* WeaponToEquip);
 
 
 	void Fire();
@@ -92,10 +98,11 @@ protected:
 
 	void AttachActorToRightHand(AActor* ActorToAttach);
 	void AttachActorToLeftHand(AActor* ActorToAttach);
-
-
+	void AttachActorToBackpack(AActor* ActorToAttach);
 	void UpdateCarriedAmmo();
 	void ShowAttachedGrenade(bool bShowGrenade);
+	void EquipPrimaryWeapon(AWeapon* WeaponToEquip);
+	void EquipSecondaryWeapon(AWeapon* WeaponToEquip);
 private:
 	UPROPERTY()
 	class ABlasterCharacter* Character;
@@ -105,8 +112,11 @@ private:
 	UPROPERTY()
 	class ABlasterHUD* HUD;
 
-	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon) //Rep Notify
 	AWeapon* EquippedWeapon;
+
+	UPROPERTY(ReplicatedUsing = OnRep_SecondaryWeapon) //Rep Notify
+	AWeapon* SecondaryWeapon;
 
 	UPROPERTY(Replicated)
 	bool bAiming;
@@ -207,7 +217,7 @@ private:
 	void UpdateShotgunAmmoValues();
 
 
-	UPROPERTY(ReplicatedUsing = OnRep_Grenades) //especificar que para esta variable se replicara utilizando esta funcion
+	UPROPERTY(ReplicatedUsing = OnRep_Grenades, EditAnywhere) //especificar que para esta variable se replicara utilizando esta funcion
 	int32 Grenades = 4; //Variable replicada, cada vez que se actualiza notificar
 
 	UFUNCTION() //Importante utilizar la macro UFUNCTION
@@ -220,4 +230,5 @@ private:
 
 public:	
 	FORCEINLINE int32 GetGrenades() const { return Grenades; }
+	bool ShouldSwapWeapons();
 };

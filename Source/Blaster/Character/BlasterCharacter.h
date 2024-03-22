@@ -27,6 +27,7 @@ public:
 	void PlayThrowGrenadeMontage();
 	virtual void OnRep_ReplicatedMovement() override;
 	void Elim();
+	void DropOrDestroyWeapons();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastElim();
 	virtual void Destroyed() override;
@@ -39,6 +40,10 @@ public:
 
 	void UpdateHUDHealth();
 
+	void UpdateHUDShield();
+
+	void UpdateHUDAmmo();
+	void SpawnDefaultWeapon();
 protected:
 	virtual void BeginPlay() override;
 
@@ -60,6 +65,7 @@ protected:
 	void FireButtonReleased();
 	void PlayHitReactMontage();
 	void GrenadeButtonPressed();
+	void DropOrDestroyWeapon(AWeapon* Weapon);
 
 	UFUNCTION()
 	void RecieveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
@@ -67,6 +73,7 @@ protected:
 	void PollInit();
 
 	void RotateInPlace(float Deltatime);
+
 
 private:
 	UPROPERTY(VisibleAnywhere,Category = Camera)
@@ -142,6 +149,17 @@ private:
 	float Health = 100.f;
 	UFUNCTION()
 	void OnRep_Health(float LastHealth);
+	/**
+	* Player Health
+	*/
+	UPROPERTY(EditAnywhere, Category = "Player stats")
+	float MaxShield = 100.f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Shield, EditAnywhere, Category = "Player stats") //esto es un REP NOTIFY
+	float Shield = 0.f;
+
+	UFUNCTION() //esto es un REP NOTIFY
+	void OnRep_Shield(float LastShield);
 
 	UPROPERTY()
 	class ABlasterPlayerController* BlasterPlayerController;
@@ -199,7 +217,11 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* AttachedGrenade;
 
-
+	/**
+	*	Default Weapon
+	*/
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AWeapon> DefaultWeaponClass;
 public:	
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -219,6 +241,9 @@ public:
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE void SetHealth(float Amount) { Health = Amount; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	FORCEINLINE float GetShield() const { return Shield; }
+	FORCEINLINE void SetShield(float Amount) { Shield = Amount; }
+	FORCEINLINE float GetMaxShield()const { return MaxShield; }
 	ECombatState GetCombatState() const;
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
