@@ -37,6 +37,8 @@ public:
 	void HandleMatchHasStarted();
 	void HandleCooldown();
 
+	float SingleTripTime = 0;
+
 protected:
 	virtual void BeginPlay() override;
 	void SetHUDTime();
@@ -66,6 +68,10 @@ protected:
 
 	UFUNCTION(Client, Reliable)
 	void ClientJoinMidgame(FName StateOfMatch, float Warmup, float Match,float Cooldown, float StartingTime);
+
+	void HighPinWarning();
+	void StopHighPinWarning();
+	void CheckPing(float DeltaTime);
 private:
 	UPROPERTY()
 	class ABlasterHUD* BlasterHUD;
@@ -111,4 +117,17 @@ private:
 	float HUDWeaponAmmo;
 	bool bInitializeWeaponAmmo;
 	
+	float HighPingRunningTime = 0.f;
+
+	UPROPERTY(EditAnywhere)
+	float HighPingDuration = 5.f;
+
+	UPROPERTY(EditAnywhere)
+	float PingAnimationRunningTime = 0.f;
+
+	UPROPERTY(EditAnywhere)
+	float CheckPingFrequency = 20.f;
+
+	UPROPERTY(EditAnywhere)
+	float HighPingThreshold = 50.f;
 };

@@ -13,7 +13,7 @@
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/BlasterComponents/CombatComponent.h"
-
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 AWeapon::AWeapon()
@@ -57,14 +57,12 @@ void AWeapon::EnableCustomDepth(bool bEnable)
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-		//Esto permite que solamete los procesos dentro de aqui se ejecuten unicamente en el servidor
-	if (HasAuthority()) //soy el servidor?
-	{
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-		AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
-		AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
-	}
+	//Esto permite que solamete los procesos dentro de aqui se ejecuten unicamente en el servidor
+
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
+	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
 
 	if (PickupWidget)
 	{
@@ -85,7 +83,6 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
-	DOREPLIFETIME(AWeapon, Ammo);
 
 
 }
@@ -123,16 +120,46 @@ void AWeapon::SetHUDAmmo()
 	}
 }
 
+
+
+
+
 void AWeapon::SpendRound()
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
 	SetHUDAmmo();
+
+	if (HasAuthority())
+	{
+		ClientUpdateAmmo(Ammo);
+	}
+	else if (BlasterOwnerCharacter && BlasterOwnerCharacter->IsLocallyControlled())
+	{
+		++Sequence;
+	}
 }
 
-
-
-void AWeapon::OnRep_Ammo()
+void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
 {
+	if (HasAuthority()) return;
+	Ammo = ServerAmmo; //se aplica el valor del servidor a la del cliente
+	--Sequence; //Confirmar paquete| se resta una confirmacion
+	Ammo -= Sequence; //restar la diferencia de la municion local a la que falta por confirmar, osea la municion que ya se gasto, pero todavia el servidor no responde
+	SetHUDAmmo();
+
+}
+
+void AWeapon::AddAmmo(int32 AmmoToAdd)
+{
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	SetHUDAmmo();
+	ClientAddAmmo(AmmoToAdd);
+}
+
+void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
+{
+	if (HasAuthority()) return;
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
 	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull())
 	{
@@ -275,7 +302,9 @@ void AWeapon::Fire(const FVector& HitTarget)
 			}
 		}
 	}
+
 	SpendRound();
+	
 }
 
 void AWeapon::Dropped()
@@ -288,11 +317,7 @@ void AWeapon::Dropped()
 	BlasterOwnerController = nullptr;
 }
 
-void AWeapon::AddAmmo(int32 AmmoToAdd)
-{
-	Ammo = FMath::Clamp(Ammo - AmmoToAdd, 0, MagCapacity);
-	SetHUDAmmo();
-}
+
 
 bool AWeapon::IsEmpty()
 {
@@ -302,4 +327,21 @@ bool AWeapon::IsEmpty()
 bool AWeapon::IsFull()
 {
 	return Ammo == MagCapacity;
+}
+
+FVector AWeapon::TraceEndWithScatter(const FVector& HitTarget)
+{
+	const USkeletalMeshSocket* MuzzeFlashSocket = GetWeaponMesh()->GetSocketByName("MuzzleFlash");
+	if (MuzzeFlashSocket == nullptr) return FVector();
+
+	const FTransform SocketTransform = MuzzeFlashSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector TraceStart = SocketTransform.GetLocation();
+
+	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
+	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
+	const FVector RandVec = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
+	const FVector EndLoc = SphereCenter + RandVec;
+	const FVector ToEndLoc = EndLoc - TraceStart;
+
+	return FVector(TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size());
 }
