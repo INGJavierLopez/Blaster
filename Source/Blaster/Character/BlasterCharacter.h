@@ -10,6 +10,9 @@
 #include "Blaster/BlasterTypes/CombatState.h"
 #include "BlasterCharacter.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLeftGame);
+
+
 UCLASS()
 class BLASTER_API ABlasterCharacter : public ACharacter, public IInteractWithCrosshairsInterface
 {
@@ -21,15 +24,22 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
+
+	/**
+	* Play Montages
+	*/
 	void PlayFireMontage(bool bAiming);
 	void PlayReloadMontage();
 	void PlayElimMontage();
 	void PlayThrowGrenadeMontage();
+	void PlaySwapMontage();
+
 	virtual void OnRep_ReplicatedMovement() override;
-	void Elim();
+
 	void DropOrDestroyWeapons();
+	void Elim(bool bPlayerLeftGame);
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastElim();
+	void MulticastElim(bool bPlayerLeftGame);
 	virtual void Destroyed() override;
 
 	UPROPERTY(Replicated)
@@ -105,6 +115,16 @@ public:
 	UPROPERTY()
 	TMap<FName, class UBoxComponent*> HitCollisionBoxes;
 
+	bool bFinishedSwapping = false;
+
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveGame();
+	FOnLeftGame OnLeftGame; //delegate
+
+	UFUNCTION(NetMulticast,Reliable)
+	void MulticastGainedTheLead();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastLostTheLead();
 protected:
 	virtual void BeginPlay() override;
 
@@ -191,7 +211,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = Combat)
 	class UAnimMontage* ThrowGrenadeMontage;
 
-
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* SwapMontage;
+	
 	void HideCameraIfCharacterClose();
 
 	UPROPERTY(EditAnywhere)
@@ -241,6 +263,9 @@ private:
 
 	void ElimTimerFinished();
 
+	bool bLeftGame = false;
+
+
 	/**
 	* TIMELINE COMPONENT
 	*/
@@ -264,7 +289,7 @@ private:
 	UMaterialInstance* DissolveMaterialInstance;
 
 	/**	
-	*	ELIM BOT
+	*	ELIM Effects
 	*/
 
 	UPROPERTY(EditAnywhere)
@@ -278,6 +303,11 @@ private:
 
 	UPROPERTY()
 	class ABlasterPlayerState* BlasterPlayerState;
+
+	UPROPERTY(EditAnywhere)
+	class UNiagaraSystem* CrownSystem;
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* CrownComponent;
 
 	/**
 	*	Grenade

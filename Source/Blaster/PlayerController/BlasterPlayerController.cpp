@@ -15,6 +15,7 @@
 #include "Blaster/BlasterComponents/CombatComponent.h"
 #include "Blaster/GameState/BlasterGameState.h"
 #include "Components/Image.h"
+#include "Blaster/HUD/ReturnToMainMenu.h"
 
 void ABlasterPlayerController::BeginPlay()
 {
@@ -22,6 +23,14 @@ void ABlasterPlayerController::BeginPlay()
 
 	BlasterHUD = Cast<ABlasterHUD>(GetHUD());
 	ServerCheckMatchState();
+}
+
+void ABlasterPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+	if (InputComponent == nullptr) return;
+
+	InputComponent->BindAction("Quit",IE_Pressed,this,&ABlasterPlayerController::ShowReturnToMainMenu);
 }
 
 void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -51,11 +60,16 @@ void ABlasterPlayerController::CheckPing(float DeltaTime)
 		PlayerState = PlayerState == nullptr ? GetPlayerState<APlayerState>() : PlayerState;
 		if (PlayerState)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Ping: %d"), PlayerState->GetPing() * 4);
+			//UE_LOG(LogTemp, Warning, TEXT("Ping: %d"), PlayerState->GetPing() * 4);
 			if (PlayerState->GetPing() * 4 > HighPingThreshold) // ping is compressed ; its divided by 4
 			{
 				HighPinWarning();
 				PingAnimationRunningTime = 0.f;
+				ServerReportPingStatus(true);
+			}
+			else
+			{
+				ServerReportPingStatus(false);
 			}
 		}
 	}
@@ -69,6 +83,34 @@ void ABlasterPlayerController::CheckPing(float DeltaTime)
 			StopHighPinWarning();
 		}
 	}
+}
+
+void ABlasterPlayerController::ShowReturnToMainMenu()
+{
+	// TODO Show the return to Main Menu Widget
+	if (ReturnToMainMenuWidget == nullptr) return;
+	if (ReturnToMainMenu == nullptr)
+	{
+		ReturnToMainMenu = CreateWidget<UReturnToMainMenu>(this, ReturnToMainMenuWidget);
+	}
+	if (ReturnToMainMenu)
+	{
+		bReturnToMainMenuOpen = !bReturnToMainMenuOpen;
+		if (bReturnToMainMenuOpen)
+		{
+			ReturnToMainMenu->MenuSetup();
+		}
+		else
+		{
+			ReturnToMainMenu->MenuTearDown();
+		}
+	}
+}
+
+//Is the ping too high?
+void ABlasterPlayerController::ServerReportPingStatus_Implementation(bool bHighPin)
+{
+	HighPingDelegate.Broadcast(bHighPin);
 }
 
 void ABlasterPlayerController::CheckTimeSync(float DeltaTime)
@@ -438,6 +480,8 @@ void ABlasterPlayerController::OnRep_MatchState()
 		HandleCooldown();
 	}
 }
+
+
 
 void ABlasterPlayerController::HandleMatchHasStarted()
 {

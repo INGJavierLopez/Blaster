@@ -21,6 +21,8 @@ AProjectileRocket::AProjectileRocket()
 	RocketMovementComponent->bRotationFollowsVelocity = true;
 	RocketMovementComponent->SetIsReplicated(true);
 
+	RocketMovementComponent->InitialSpeed = InitialSpeed;
+	RocketMovementComponent->MaxSpeed = InitialSpeed;
 }
 
 
@@ -72,10 +74,10 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 	if (ImpactSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, Hit.ImpactPoint);
-		UE_LOG(LogTemp, Warning, TEXT("SONIDO EJECUTAD"));
+		//UE_LOG(LogTemp, Warning, TEXT("SONIDO EJECUTAD"));
 	}
 	else {
-		UE_LOG(LogTemp, Warning, TEXT("SONIDO NOOOOOOOOOOOO"));
+		//UE_LOG(LogTemp, Warning, TEXT("SONIDO NOOOOOOOOOOOO"));
 
 	}
 	if (ProjectileMesh)
@@ -100,4 +102,21 @@ void AProjectileRocket::Destroyed()
 {
 
 }
+
+#if WITH_EDITOR
+void AProjectileRocket::PostEditChangeProperty(FPropertyChangedEvent& Event)
+{
+	Super::PostEditChangeProperty(Event);
+
+	FName  PropertyName = Event.Property != nullptr ? Event.Property->GetFName() : NAME_None;
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(AProjectileRocket, InitialSpeed))
+	{
+		if (RocketMovementComponent)
+		{
+			RocketMovementComponent->InitialSpeed = InitialSpeed;
+			RocketMovementComponent->MaxSpeed = InitialSpeed;
+		}
+	}
+}
+#endif
 
