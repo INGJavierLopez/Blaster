@@ -93,24 +93,27 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		SetHUDCrosshairs(DeltaTime);
 		InterpFOV(DeltaTime);
 	}
-	
-	switch (CombatState)
+	if (Character && Character->HasAuthority() && Character->IsLocallyControlled())
 	{
-	case ECombatState::ECS_Unoccupied:
-		//UE_LOG(LogTemp, Warning, TEXT("STATE UNOCUPAID"));
-		break;
-	case ECombatState::ECS_Reloading:
-		//UE_LOG(LogTemp, Warning, TEXT("STATE RELOADING"));
-		break;
-	case ECombatState::ECS_ThrowingGrenade:
-		//UE_LOG(LogTemp, Warning, TEXT("STATE GRENADE"));
-		break;
-	case ECombatState::ECS_MAX:
-		//UE_LOG(LogTemp, Warning, TEXT("STATE MAX"));
-		break;
-	default:
-		break;
+		switch (CombatState)
+		{
+		case ECombatState::ECS_Unoccupied:
+			UE_LOG(LogTemp, Warning, TEXT("STATE UNOCUPAID"));
+			break;
+		case ECombatState::ECS_Reloading:
+			UE_LOG(LogTemp, Warning, TEXT("STATE RELOADING"));
+			break;
+		case ECombatState::ECS_ThrowingGrenade:
+			UE_LOG(LogTemp, Warning, TEXT("STATE GRENADE"));
+			break;
+		case ECombatState::ECS_MAX:
+			UE_LOG(LogTemp, Warning, TEXT("STATE MAX"));
+			break;
+		default:
+			break;
+		}
 	}
+	
 
 }
 
@@ -266,9 +269,11 @@ void UCombatComponent::ShotgunLocalFire(const TArray<FVector_NetQuantize>& Trace
 	if (Shotgun == nullptr) return;
 	if (CombatState == ECombatState::ECS_Reloading || CombatState == ECombatState::ECS_Unoccupied)
 	{
+		bLocallyReloading = false;
 		Character->PlayFireMontage(bAiming);
 		Shotgun->FireShotgun(TraceHitTargets);
 		CombatState = ECombatState::ECS_Unoccupied;
+		
 		return;
 	}
 }

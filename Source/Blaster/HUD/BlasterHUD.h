@@ -44,18 +44,31 @@ public:
 	class UAnnouncement* Announcement;
 
 	void AddAnnouncement();
-;
-
+	void AddElimAnnouncement(FString ElimText);
 
 protected:
 	virtual void BeginPlay() override;
 private:
+	UPROPERTY()
+	APlayerController* OwningPlayer;
+
 	FHUDPackage HUDPackage;
 
 	void DrawCrosshair(UTexture2D* Texture,FVector2D ViewportCenter, FVector2D Spread, FLinearColor CrosshairColor);
 
 	UPROPERTY(EditAnywhere)
 	float CrosshairSpreadMax = 16.f;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class UElimAnnouncement> ElimAnnouncementClass;
+
+	UPROPERTY(EditAnywhere)
+	float ElimAnnouncementTime = 2.5f;
+
+	UFUNCTION()
+	void ElimAnnouncementTimerFinished(UElimAnnouncement* MSGToRemove);
+	UPROPERTY()
+	TArray<UElimAnnouncement*> ElimMessages;
 public:
 	FORCEINLINE void SetHUDPackage(const FHUDPackage& Package) { HUDPackage = Package; }
 };
