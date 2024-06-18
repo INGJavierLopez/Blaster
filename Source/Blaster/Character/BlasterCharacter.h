@@ -151,6 +151,8 @@ protected:
 	void PlayHitReactMontage();
 	void GrenadeButtonPressed();
 	void DropOrDestroyWeapon(AWeapon* Weapon);
+	void SetSpawnPoint();
+	void OnPlayerStateInitialized();
 
 	UFUNCTION()
 	void RecieveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
@@ -376,6 +378,8 @@ public:
 	FORCEINLINE UBuffComponent* GetBuff() const { return Buff; }
 	bool IsLocallyReloading();
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() const { return LagCompensation; }
-
-
+	FORCEINLINE bool IsHoldingTheFLag() const;
+	ETeam GetTeam();
+	void SetHoldingTheFlag(bool bHolding);
+	AWeapon* GetFlag();
 };	
