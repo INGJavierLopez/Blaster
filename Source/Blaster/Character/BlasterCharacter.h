@@ -34,6 +34,7 @@ public:
 	void PlayElimMontage();
 	void PlayThrowGrenadeMontage();
 	void PlaySwapMontage();
+	void PlayStabMontage();
 
 	virtual void OnRep_ReplicatedMovement() override;
 
@@ -219,6 +220,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = Combat)
 	class UAnimMontage* SwapMontage;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* StabMontage;
 	
 	void HideCameraIfCharacterClose();
 
@@ -295,6 +299,14 @@ private:
 	UMaterialInstance* DissolveMaterialInstance;
 
 	/**
+	*  Gohst Colors
+	*/
+
+	UPROPERTY(VisibleAnywhere, Category = Gohst)
+	UMaterialInstanceDynamic* DynamicGohstMaterialInstance;
+
+
+	/**
 	*  Team Colors
 	*/
 
@@ -348,6 +360,25 @@ private:
 
 	UPROPERTY()
 	class ABlasterGameMode* BlasterGameMode;
+
+	/**
+	* Set Ghost values
+	*/
+	void CalculateVisibility();
+
+	UFUNCTION()
+	void OnRep_Visibility();
+
+	UPROPERTY(ReplicatedUsing = OnRep_Visibility, VisibleAnywhere, Category = "Player ghost")
+	float Visibility = 1.f;
+		
+	void CheckControlStatus();
+
+	bool bGhost = false;
+	bool bGhostIsSet = false;
+	bool bCanStab = true;
+
+	void HandleGhostAttack();
 public:	
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -370,6 +401,10 @@ public:
 	FORCEINLINE float GetShield() const { return Shield; }
 	FORCEINLINE void SetShield(float Amount) { Shield = Amount; }
 	FORCEINLINE float GetMaxShield()const { return MaxShield; }
+	FORCEINLINE bool GetIsAGhost() const { return bGhost; }
+	FORCEINLINE void SetGhost(bool newGhost) { bGhost = newGhost; }
+	UFUNCTION(BlueprintCallable)
+	void SetStab(bool newStab);
 	ECombatState GetCombatState() const;
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }

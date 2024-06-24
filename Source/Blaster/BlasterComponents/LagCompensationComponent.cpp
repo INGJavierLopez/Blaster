@@ -576,7 +576,7 @@ void ULagCompensationComponent::SaveFramePackage()
 	{
 		FFramePackage ThisFrame;
 		SaveFramePackage(ThisFrame);
-		FrameHistory.AddHead(ThisFrame);
+		FrameHistory.AddHead(ThisFrame); 
 	}
 	else
 	{

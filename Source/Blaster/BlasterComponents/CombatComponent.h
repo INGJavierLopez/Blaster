@@ -61,6 +61,9 @@ protected:
 	UFUNCTION()
 	void OnRep_SecondaryWeapon();
 
+
+	void Stab();
+	void StabTrace(FHitResult& HitResult);
 	void Fire();
 	void FireProjectileWeapon();
 	void FireHitScanWeapon();

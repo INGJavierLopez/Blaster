@@ -31,6 +31,7 @@
 
 ABlasterCharacter::ABlasterCharacter()
 {
+	bReplicates = true;
 	PrimaryActorTick.bCanEverTick = true;
 	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -169,6 +170,45 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterCharacter, Health);
 	DOREPLIFETIME(ABlasterCharacter, Shield);
 	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
+	DOREPLIFETIME(ABlasterCharacter, Visibility);
+
+}
+
+void ABlasterCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	RotateInPlace(DeltaTime);
+	/*FString ActorName = GetName();
+	switch (GetTeam())
+	{
+	case ETeam::ET_RedTeam:
+		UE_LOG(LogTemp, Warning, TEXT("Soy ROJO | Soy: %s"), *ActorName);
+		break;
+
+	case ETeam::ET_BlueTeam:
+		UE_LOG(LogTemp, Warning, TEXT("Soy AZUl | Soy: %s"), *ActorName);
+		break;
+
+	default:
+		break;
+	}
+
+	if (GetTeam() == ETeam::ET_RedTeam)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Soy Rojo"));
+	}
+	if (GetTeam() == ETeam::ET_BlueTeam)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Soy Azul"));
+	}*/
+	if (HasAuthority())
+	{
+		CalculateVisibility();
+	}
+	HideCameraIfCharacterClose();
+	//initialize Score in HUD
+	PollInit();
 }
 
 //Esta funcion es heredada de la clase actor y esta replicaca mediante el movimiento del jugador
@@ -310,10 +350,13 @@ void ABlasterCharacter::DropOrDestroyWeapon(AWeapon* Weapon)
 
 void ABlasterCharacter::OnPlayerStateInitialized()
 {
+	UE_LOG(LogTemp, Warning, TEXT("LLamado ps initi"));
 	BlasterPlayerState->AddToScore(0.f);
 	BlasterPlayerState->AddToDefeats(0);
 	SetTeamColor(BlasterPlayerState->GetTeam());
 	SetSpawnPoint();
+	CalculateVisibility();
+
 }
 
 void ABlasterCharacter::SetSpawnPoint()
@@ -393,20 +436,35 @@ void ABlasterCharacter::MulticastLostTheLead_Implementation()
 
 void ABlasterCharacter::SetTeamColor(ETeam Team)
 {
+	UE_LOG(LogTemp, Warning, TEXT("LLamado set team color"));
 	if (GetMesh() == nullptr || OriginalMaterial == nullptr) return;
 	switch (Team)
 	{
 		case ETeam::ET_NoTeam:
 			GetMesh()->SetMaterial(0, OriginalMaterial);
 			DissolveMaterialInstance = BlueDissolveMatInst;
+			
 			break;
 		case ETeam::ET_BlueTeam:
-			GetMesh()->SetMaterial(0, BlueMaterial);
 			DissolveMaterialInstance = BlueDissolveMatInst;
+			if (BlueMaterial)
+			{
+				DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(BlueMaterial, this);
+				GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
+				DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
+
+			}
 			break;
 		case ETeam::ET_RedTeam:
-			GetMesh()->SetMaterial(0, RedMaterial);
 			DissolveMaterialInstance = RedDissolveMatInst;
+			bGhost = true;
+			if (RedMaterial)
+			{
+				DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(RedMaterial, this);
+				GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
+				DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
+
+			}
 			break;
 	}
 }
@@ -414,7 +472,7 @@ void ABlasterCharacter::SetTeamColor(ETeam Team)
 void ABlasterCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	SpawnDefaultWeapon();
+	
 	UpdateHUDAmmo();
 	UpdateHUDHealth();
 	UpdateHUDShield();
@@ -430,16 +488,7 @@ void ABlasterCharacter::BeginPlay()
 }
 
 
-void ABlasterCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
 
-	RotateInPlace(DeltaTime);
-
-	HideCameraIfCharacterClose();
-	//initialize Score in HUD
-	PollInit();
-}
 
 void ABlasterCharacter::RotateInPlace(float DeltaTime)
 {
@@ -633,6 +682,18 @@ void ABlasterCharacter::PlaySwapMontage()
 	if (AnimInstance && SwapMontage)
 	{
 		AnimInstance->Montage_Play(SwapMontage);
+	}
+}
+
+void ABlasterCharacter::PlayStabMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && StabMontage)
+	{
+		AnimInstance->Montage_Play(StabMontage);
+		FName SectionName("Stab");
+		AnimInstance->Montage_JumpToSection(SectionName);
+		UE_LOG(LogTemp, Warning, TEXT("Ejecutado?"));
 	}
 }
 
@@ -922,6 +983,13 @@ void ABlasterCharacter::Jump()
 
 void ABlasterCharacter::FireButtonPressed()
 {
+	if (GetTeam() == ETeam::ET_RedTeam && bCanStab)
+	{
+		bCanStab = false;
+		UE_LOG(LogTemp, Warning, TEXT("Llamado"));
+		
+		HandleGhostAttack();
+	}
 	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (bDisableGameplay) return;
@@ -1052,6 +1120,23 @@ void ABlasterCharacter::PollInit()
 			}
 		}
 	}
+	else
+	{
+		if (!bGhostIsSet && BlasterPlayerState)
+		{
+			bGhostIsSet = true;
+			if (BlasterPlayerState->GetTeam() == ETeam::ET_RedTeam)
+			{
+				bGhost = true;
+			}
+			else
+			{
+				bGhost = false;
+				SpawnDefaultWeapon();
+			}
+		}
+	}
+	
 }
 
 
@@ -1133,6 +1218,7 @@ ECombatState ABlasterCharacter::GetCombatState() const
 	return Combat->CombatState;
 }
 
+
 bool ABlasterCharacter::IsLocallyReloading()
 {
 	if (Combat == nullptr) return false;
@@ -1152,6 +1238,8 @@ ETeam ABlasterCharacter::GetTeam()
 	return BlasterPlayerState->GetTeam();
 }
 
+
+
 void ABlasterCharacter::SetHoldingTheFlag(bool bHolding)
 {
 	if (Combat == nullptr) return;
@@ -1159,8 +1247,92 @@ void ABlasterCharacter::SetHoldingTheFlag(bool bHolding)
 	Combat->bHoldingTheFlag = false;
 }
 
+
+
 AWeapon* ABlasterCharacter::GetFlag()
 {
 	if (Combat == nullptr) return nullptr;
 	return Combat->bHoldingTheFlag ? Combat->TheFlag : nullptr;
+}
+
+//Se calcula la velocidad en tick
+void ABlasterCharacter::CalculateVisibility()
+{
+	float Speed = GetVelocity().Size();
+	float NewVisibility = FMath::GetMappedRangeValueClamped(FVector2D(0.0f, GetCharacterMovement()->MaxWalkSpeed), FVector2D(0.0f, 0.6f), Speed);
+
+	Visibility = NewVisibility; // Esto se replica
+	
+	if (GetTeam() == ETeam::ET_RedTeam)
+	{
+		if (DynamicGohstMaterialInstance)
+		{
+			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
+		}
+	}
+	else if (GetTeam() == ETeam::ET_BlueTeam)
+	{
+		if (DynamicGohstMaterialInstance)
+		{
+			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
+		}
+	}
+}
+
+
+
+//actualizacion de la variable desde el servidor
+
+void ABlasterCharacter::OnRep_Visibility()
+{
+	if (GetTeam() == ETeam::ET_RedTeam)
+	{
+		if (DynamicGohstMaterialInstance)
+		{
+			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
+		}
+	}
+	else if (GetTeam() == ETeam::ET_BlueTeam)
+	{
+		if (DynamicGohstMaterialInstance)
+		{
+			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
+		}
+	}
+}
+
+void ABlasterCharacter::CheckControlStatus()
+{
+	FString ActorName = GetName();
+
+	if (HasAuthority() && IsLocallyControlled())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Hola, soy el servidor y estoy controlado por el servidor. Nombre del actor: %s"), *ActorName);
+	}
+	else if (HasAuthority() && !IsLocallyControlled())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Hola, soy el servidor, pero estoy en la PC de un cliente. Nombre del actor: %s"), *ActorName);
+	}
+	else if (!HasAuthority() && IsLocallyControlled())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Hola, soy un cliente y estoy controlado localmente. Nombre del actor: %s"), *ActorName);
+	}
+	else if (!HasAuthority() && !IsLocallyControlled())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Hola, soy un cliente, pero no estoy controlado localmente. Nombre del actor: %s"), *ActorName);
+	}
+}
+
+void ABlasterCharacter::SetStab(bool newStab)
+{
+	bCanStab = newStab;
+}
+
+void ABlasterCharacter::HandleGhostAttack()
+{
+	if (Combat)
+	{
+		Combat->Stab();
+	}
+	PlayStabMontage();
 }

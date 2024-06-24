@@ -45,7 +45,6 @@ void UCombatComponent::ShotgunShellReload()
 	{
 		UpdateShotgunAmmoValues();
 	}
-
 }
 
 void UCombatComponent::PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount)
@@ -125,6 +124,64 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 	if (bFireButtonPressed)
 	{
 		Fire();
+	}
+}
+
+void UCombatComponent::Stab()
+{
+	FHitResult HitResult;
+	StabTrace(HitResult);
+}
+
+void UCombatComponent::StabTrace(FHitResult& HitResult)
+{
+	// Obtener el World
+	UWorld* World = GetWorld();
+	if (!World || Character == nullptr)
+	{
+		return;
+	}
+
+	// Obtener la ubicación y la rotación del mesh del personaje
+	FVector Start = Character->GetActorLocation();
+
+	// Calcular la dirección y el punto final del trace
+	FVector ForwardVector = Character->GetMesh()->GetForwardVector();
+	FVector End = Start + (ForwardVector * 200.0f);
+
+	// Realizar el trace
+	bool bHit = World->LineTraceSingleByChannel(
+		HitResult,
+		Start,
+		End,
+		ECC_Visibility
+	);
+
+	// Dibujar el trace para depuración
+	DrawDebugLine(
+		World,
+		Start,
+		End,
+		FColor::Green,
+		false,
+		1.0f,
+		0,
+		1.0f
+	);
+
+	// Procesar el resultado del trace
+	if (bHit)
+	{
+		// El trace golpeó algo
+		AActor* HitActor = HitResult.GetActor();
+		if (HitActor)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Trace hit actor: %s"), *HitActor->GetName());
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Trace did not hit any actor."));
 	}
 }
 
@@ -789,14 +846,9 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 			End,
 			ECollisionChannel::ECC_Visibility
 		);
-		if (TraceHitResult.GetActor() && TraceHitResult.GetActor()->Implements<UInteractWithCrosshairsInterface>())
-		{
-			HUDPackage.CrosshairsColor = FLinearColor::Red;
-		}
-		else
-		{
-			HUDPackage.CrosshairsColor = FLinearColor::White;
-		}
+
+		HUDPackage.CrosshairsColor = FLinearColor::White;
+
 		if (TraceHitResult.bBlockingHit)
 		{
 			HitTarget = TraceHitResult.ImpactPoint;
