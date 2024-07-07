@@ -202,10 +202,9 @@ void ABlasterCharacter::Tick(float DeltaTime)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Soy Azul"));
 	}*/
-	if (HasAuthority())
-	{
-		CalculateVisibility();
-	}
+
+	CalculateVisibility();
+
 	HideCameraIfCharacterClose();
 	//initialize Score in HUD
 	PollInit();
@@ -1260,31 +1259,23 @@ void ABlasterCharacter::CalculateVisibility()
 {
 	float Speed = GetVelocity().Size();
 	float NewVisibility = FMath::GetMappedRangeValueClamped(FVector2D(0.0f, GetCharacterMovement()->MaxWalkSpeed), FVector2D(0.0f, 0.6f), Speed);
-
-	Visibility = NewVisibility; // Esto se replica
+	ServerChangeVisibility(NewVisibility);
 	
-	if (GetTeam() == ETeam::ET_RedTeam)
-	{
-		if (DynamicGohstMaterialInstance)
-		{
-			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
-		}
-	}
-	else if (GetTeam() == ETeam::ET_BlueTeam)
-	{
-		if (DynamicGohstMaterialInstance)
-		{
-			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
-		}
-	}
 }
 
-
-
-//actualizacion de la variable desde el servidor
+void ABlasterCharacter::ServerChangeVisibility_Implementation(float NewVisibility)
+{
+	Visibility = NewVisibility;
+	HandleChangeVisibility();
+}
 
 void ABlasterCharacter::OnRep_Visibility()
 {
+	HandleChangeVisibility();
+}
+
+void ABlasterCharacter::HandleChangeVisibility()
+{
 	if (GetTeam() == ETeam::ET_RedTeam)
 	{
 		if (DynamicGohstMaterialInstance)
@@ -1301,27 +1292,7 @@ void ABlasterCharacter::OnRep_Visibility()
 	}
 }
 
-void ABlasterCharacter::CheckControlStatus()
-{
-	FString ActorName = GetName();
-
-	if (HasAuthority() && IsLocallyControlled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Hola, soy el servidor y estoy controlado por el servidor. Nombre del actor: %s"), *ActorName);
-	}
-	else if (HasAuthority() && !IsLocallyControlled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Hola, soy el servidor, pero estoy en la PC de un cliente. Nombre del actor: %s"), *ActorName);
-	}
-	else if (!HasAuthority() && IsLocallyControlled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Hola, soy un cliente y estoy controlado localmente. Nombre del actor: %s"), *ActorName);
-	}
-	else if (!HasAuthority() && !IsLocallyControlled())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Hola, soy un cliente, pero no estoy controlado localmente. Nombre del actor: %s"), *ActorName);
-	}
-}
+//actualizacion de la variable desde el servidor
 
 void ABlasterCharacter::SetStab(bool newStab)
 {

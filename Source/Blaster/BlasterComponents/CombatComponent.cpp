@@ -563,9 +563,6 @@ void UCombatComponent::FinishReloading()
 }
 
 
-
-
-
 void UCombatComponent::UpdateAmmoValues()
 {
 	if (Character == nullptr || EquippedWeapon == nullptr) return;
@@ -604,8 +601,6 @@ void UCombatComponent::UpdateShotgunAmmoValues()
 		JumpToShotgunEnd();
 	}
 }
-
-
 
 void UCombatComponent::JumpToShotgunEnd()
 {

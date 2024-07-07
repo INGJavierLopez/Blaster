@@ -364,16 +364,19 @@ private:
 	/**
 	* Set Ghost values
 	*/
+	//Local
 	void CalculateVisibility();
+
+	void HandleChangeVisibility();
+
+	UPROPERTY(ReplicatedUsing = OnRep_Visibility, VisibleAnywhere, Category = "Player ghost")
+	float Visibility = 1.f;
 
 	UFUNCTION()
 	void OnRep_Visibility();
 
-	UPROPERTY(ReplicatedUsing = OnRep_Visibility, VisibleAnywhere, Category = "Player ghost")
-	float Visibility = 1.f;
-		
-	void CheckControlStatus();
-
+	UFUNCTION(Server, Reliable)
+	void ServerChangeVisibility(float NewVisibility);
 	bool bGhost = false;
 	bool bGhostIsSet = false;
 	bool bCanStab = true;
