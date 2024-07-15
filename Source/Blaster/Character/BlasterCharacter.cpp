@@ -171,7 +171,7 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterCharacter, Shield);
 	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 	DOREPLIFETIME(ABlasterCharacter, Visibility);
-
+	DOREPLIFETIME(ABlasterCharacter, bGhost);
 }
 
 void ABlasterCharacter::Tick(float DeltaTime)
@@ -349,13 +349,21 @@ void ABlasterCharacter::DropOrDestroyWeapon(AWeapon* Weapon)
 
 void ABlasterCharacter::OnPlayerStateInitialized()
 {
-	UE_LOG(LogTemp, Warning, TEXT("LLamado ps initi"));
+	CharacterBPSignal();
 	BlasterPlayerState->AddToScore(0.f);
 	BlasterPlayerState->AddToDefeats(0);
 	SetTeamColor(BlasterPlayerState->GetTeam());
 	SetSpawnPoint();
 	CalculateVisibility();
-
+	if (BlasterPlayerState->GetTeam() == ETeam::ET_RedTeam)
+	{
+		bGhost = true;
+	}
+	else
+	{
+		bGhost = false;
+		SpawnDefaultWeapon();
+	}
 }
 
 void ABlasterCharacter::SetSpawnPoint()
@@ -451,7 +459,7 @@ void ABlasterCharacter::SetTeamColor(ETeam Team)
 				DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(BlueMaterial, this);
 				GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
 				DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
-
+				SpawnDefaultWeapon();
 			}
 			break;
 		case ETeam::ET_RedTeam:
@@ -483,7 +491,7 @@ void ABlasterCharacter::BeginPlay()
 	{
 		AttachedGrenade->SetVisibility(false);
 	}
-
+	
 }
 
 
@@ -692,7 +700,6 @@ void ABlasterCharacter::PlayStabMontage()
 		AnimInstance->Montage_Play(StabMontage);
 		FName SectionName("Stab");
 		AnimInstance->Montage_JumpToSection(SectionName);
-		UE_LOG(LogTemp, Warning, TEXT("Ejecutado?"));
 	}
 }
 
@@ -982,7 +989,7 @@ void ABlasterCharacter::Jump()
 
 void ABlasterCharacter::FireButtonPressed()
 {
-	if (GetTeam() == ETeam::ET_RedTeam && bCanStab)
+	if (GetTeam() == ETeam::ET_RedTeam && bCanStab && bGhost)
 	{
 		bCanStab = false;
 		UE_LOG(LogTemp, Warning, TEXT("Llamado"));
@@ -1119,23 +1126,7 @@ void ABlasterCharacter::PollInit()
 			}
 		}
 	}
-	else
-	{
-		if (!bGhostIsSet && BlasterPlayerState)
-		{
-			bGhostIsSet = true;
-			if (BlasterPlayerState->GetTeam() == ETeam::ET_RedTeam)
-			{
-				bGhost = true;
-			}
-			else
-			{
-				bGhost = false;
-				SpawnDefaultWeapon();
-			}
-		}
-	}
-	
+	bGhost = GetTeam() == ETeam::ET_RedTeam;
 }
 
 
@@ -1305,5 +1296,4 @@ void ABlasterCharacter::HandleGhostAttack()
 	{
 		Combat->Stab();
 	}
-	PlayStabMontage();
 }

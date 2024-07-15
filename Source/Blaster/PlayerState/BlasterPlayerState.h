@@ -35,7 +35,7 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Defeats)
 	int32 Defeats;
 
-	UPROPERTY(ReplicatedUsing = OnRep_Team)
+	UPROPERTY(ReplicatedUsing = OnRep_Team,BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	ETeam Team = ETeam::ET_NoTeam;
 
 	UFUNCTION()

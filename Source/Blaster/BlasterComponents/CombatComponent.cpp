@@ -129,11 +129,28 @@ void UCombatComponent::FireButtonPressed(bool bPressed)
 
 void UCombatComponent::Stab()
 {
-	FHitResult HitResult;
-	StabTrace(HitResult);
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
+	CombatState = ECombatState::ECS_Stabbing;
+	if (Character)
+	{
+		Character->PlayStabMontage();
+	}
+	if (Character && !Character->HasAuthority())
+	{
+		ServerStab();
+	}
 }
 
-void UCombatComponent::StabTrace(FHitResult& HitResult)
+void UCombatComponent::ServerStab_Implementation()
+{
+	CombatState = ECombatState::ECS_Stabbing;
+	if (Character)
+	{
+		Character->PlayStabMontage();
+	}
+}
+
+	void UCombatComponent::StabTrace_Implementation()
 {
 	// Obtener el World
 	UWorld* World = GetWorld();
@@ -146,28 +163,26 @@ void UCombatComponent::StabTrace(FHitResult& HitResult)
 	FVector Start = Character->GetActorLocation();
 
 	// Calcular la dirección y el punto final del trace
-	FVector ForwardVector = Character->GetMesh()->GetForwardVector();
-	FVector End = Start + (ForwardVector * 200.0f);
-
-	// Realizar el trace
-	bool bHit = World->LineTraceSingleByChannel(
+	FVector ForwardVector = Character->GetMesh()->GetRightVector();
+	Start.Z += 30.f;
+	FVector End = Start + (ForwardVector * 100.f);
+	float SphereRadius = 20.f;
+	FCollisionQueryParams TraceParams;
+	FHitResult HitResult;
+	TraceParams.AddIgnoredActor(Character);
+	bool bHit = World->SweepSingleByChannel(
 		HitResult,
 		Start,
 		End,
-		ECC_Visibility
+		FQuat::Identity, // Rotación
+		ECC_Visibility,
+		FCollisionShape::MakeSphere(SphereRadius),
+		TraceParams
 	);
-
 	// Dibujar el trace para depuración
-	DrawDebugLine(
-		World,
-		Start,
-		End,
-		FColor::Green,
-		false,
-		1.0f,
-		0,
-		1.0f
-	);
+	DrawDebugSphere(GetWorld(), Start, SphereRadius, 12, FColor::Red, false, 1.0f);
+	DrawDebugSphere(GetWorld(), End, SphereRadius, 12, FColor::Green, false, 1.0f);
+	DrawDebugLine(GetWorld(), Start, End, FColor::Blue, false, 1.0f, 0, 1.0f);
 
 	// Procesar el resultado del trace
 	if (bHit)
@@ -179,11 +194,17 @@ void UCombatComponent::StabTrace(FHitResult& HitResult)
 			UE_LOG(LogTemp, Warning, TEXT("Trace hit actor: %s"), *HitActor->GetName());
 		}
 	}
-	else
+}
+
+void UCombatComponent::StabFinished()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+	if (Character)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Trace did not hit any actor."));
+		Character->SetStab(true);
 	}
 }
+
 
 void UCombatComponent::Fire()
 {
@@ -625,6 +646,12 @@ void UCombatComponent::OnRep_CombatState()
 			Fire();
 		}
 		break;
+	case ECombatState::ECS_Stabbing:
+		if (Character && !Character->IsLocallyControlled())
+		{
+			Character->PlayStabMontage();
+		}
+		break;
 	case ECombatState::ECS_ThrowingGrenade:
 		if (Character && !Character->IsLocallyControlled())
 		{
@@ -790,6 +817,7 @@ void UCombatComponent::OnRep_SecondaryWeapon()
 		PlayEquipWeaponSound(EquippedWeapon);
 	}
 }
+
 
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)

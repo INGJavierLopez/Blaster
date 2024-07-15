@@ -20,6 +20,9 @@ class BLASTER_API ABlasterCharacter : public ACharacter, public IInteractWithCro
 	GENERATED_BODY()
 
 public:
+	UFUNCTION(BlueprintImplementableEvent)
+	void CharacterBPSignal(); //señal de ejecucion en el blueprint
+
 	ABlasterCharacter();
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -377,8 +380,8 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerChangeVisibility(float NewVisibility);
+	UPROPERTY(Replicated,BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bGhost = false;
-	bool bGhostIsSet = false;
 	bool bCanStab = true;
 
 	void HandleGhostAttack();

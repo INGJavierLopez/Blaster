@@ -48,6 +48,9 @@ public:
 
 	void PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount);
 	bool bLocallyReloading = false;
+
+	UFUNCTION(BlueprintCallable) //Funcion llamada desde el ABP para  reestablecer las variables para poder volver a hacer stab
+	void StabFinished();
 protected:
 	virtual void BeginPlay() override;
 	void SetAiming(bool bIsAiming);
@@ -61,9 +64,20 @@ protected:
 	UFUNCTION()
 	void OnRep_SecondaryWeapon();
 
-
+	/*
+	* STAB
+	*/
 	void Stab();
-	void StabTrace(FHitResult& HitResult);
+
+	UFUNCTION(Server,Reliable)
+	void ServerStab();
+
+	UFUNCTION(Server, Reliable,BlueprintCallable)
+	void StabTrace();
+
+	/*
+	* STAB
+	*/
 	void Fire();
 	void FireProjectileWeapon();
 	void FireHitScanWeapon();
