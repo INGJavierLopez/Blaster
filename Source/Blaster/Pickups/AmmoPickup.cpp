@@ -12,6 +12,7 @@ void AAmmoPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AAct
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
 	if (BlasterCharacter)
 	{
+		if (BlasterCharacter->GetGhost()) return;
 		UCombatComponent* Combat = BlasterCharacter->GetCombat();
 		if (Combat)
 		{

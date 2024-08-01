@@ -36,6 +36,10 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 				{
 					World->ServerTravel(FString("/Game/Maps/CaptureTheFlag?listen"));
 				}
+				else if (MatchType == "Ghost")
+				{
+					World->ServerTravel(FString("/Game/Maps/Ghost?listen"));
+				}
 				
 			}
 		}

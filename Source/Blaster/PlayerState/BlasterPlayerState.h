@@ -27,6 +27,7 @@ public:
 
 	void AddToScore(float ScoreAmount);
 	void AddToDefeats(int32 DefeatsAmount);
+	bool IsGhostGameMode();
 private:
 	UPROPERTY()
 	class ABlasterCharacter* Character = nullptr;
@@ -41,10 +42,12 @@ private:
 	UFUNCTION()
 	void OnRep_Team();
 
+	UPROPERTY(Replicated,BlueprintReadWrite,meta = (AllowPrivateAccess = "true"))
+	bool bGhost = false;
+
 public:
 	FORCEINLINE ETeam GetTeam() const { return Team; }
 	void SetTeam(ETeam TeamToSet);
-
-	UFUNCTION(Server,Reliable)
-	void ServerSetTeam(ETeam TeamToSet);
+	void SetGhost(bool NewGhost);
+	FORCEINLINE bool GetGhost() { return bGhost; }
 };

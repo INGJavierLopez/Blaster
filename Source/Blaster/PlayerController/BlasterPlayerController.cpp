@@ -18,29 +18,14 @@
 #include "Blaster/HUD/ReturnToMainMenu.h"
 #include "Blaster/BlasterTypes/Announcement.h"
 
-void ABlasterPlayerController::BroadcastElim(APlayerState* Attacker, APlayerState* Victim)
-{
-	ClientElimAnnouncement(Attacker, Victim);
-}
 
-void ABlasterPlayerController::HideTeamScores()
-{
-	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
-	bool bHUDValid = BlasterHUD &&
-		BlasterHUD->CharacterOverlay &&
-		BlasterHUD->CharacterOverlay->RedTeamScore &&
-		BlasterHUD->CharacterOverlay->BlueTeamScore &&
-		BlasterHUD->CharacterOverlay->ScoreSpacerText;
-	if (bHUDValid)
-	{
-		BlasterHUD->CharacterOverlay->RedTeamScore->SetText(FText());
-		BlasterHUD->CharacterOverlay->BlueTeamScore->SetText(FText());
-		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetText(FText());
-	}
-}
+
+
 
 void ABlasterPlayerController::InitTeamScores()
 {
+	UE_LOG(LogTemp, Warning, TEXT("LLAMADO INITTEAMSCORES"));
+
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 	bool bHUDValid = BlasterHUD &&
 		BlasterHUD->CharacterOverlay &&
@@ -53,7 +38,24 @@ void ABlasterPlayerController::InitTeamScores()
 		FString Spacer("|");
 		BlasterHUD->CharacterOverlay->RedTeamScore->SetText(FText::FromString(Zero));
 		BlasterHUD->CharacterOverlay->BlueTeamScore->SetText(FText::FromString(Zero));
-		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetText(FText::FromString(Zero));
+		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetText(FText::FromString(Spacer));
+	}
+}
+
+void ABlasterPlayerController::HideTeamScores()
+{
+	UE_LOG(LogTemp, Warning, TEXT("LLAMADO HIDETEAMSCORES"));
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->RedTeamScore &&
+		BlasterHUD->CharacterOverlay->BlueTeamScore &&
+		BlasterHUD->CharacterOverlay->ScoreSpacerText;
+	if (bHUDValid)
+	{
+		BlasterHUD->CharacterOverlay->RedTeamScore->SetText(FText());
+		BlasterHUD->CharacterOverlay->BlueTeamScore->SetText(FText());
+		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetText(FText());
 	}
 }
 
@@ -81,6 +83,11 @@ void ABlasterPlayerController::SetHUDBlueTeamScore(int32 BlueScore)
 		FString ScoreText = FString::Printf(TEXT("%d"), BlueScore);
 		BlasterHUD->CharacterOverlay->BlueTeamScore->SetText(FText::FromString(ScoreText));
 	}
+}
+
+void ABlasterPlayerController::BroadcastElim(APlayerState* Attacker, APlayerState* Victim)
+{
+	ClientElimAnnouncement(Attacker, Victim);
 }
 
 void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerState* Attacker, APlayerState* Victim)
@@ -213,19 +220,6 @@ void ABlasterPlayerController::ShowReturnToMainMenu()
 	}
 }
 
-void ABlasterPlayerController::OnRep_ShowTeamScores()
-{
-	if (bShowTeamScores)
-	{
-		InitTeamScores();
-	}
-	else
-	{
-		HideTeamScores();
-	}
-}
-
-
 
 
 
@@ -280,30 +274,38 @@ void ABlasterPlayerController::StopHighPinWarning()
 	}
 }
 
-
-
 void ABlasterPlayerController::ServerCheckMatchState_Implementation()
 {
 	ABlasterGameMode* GameMode = Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this));
 	if (GameMode)
 	{
+		bShowTeamScores = GameMode->bTeamsMatch; // added this while trying to debug the client not having the teams match spawned
+		if (GameMode->bTeamsMatch)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("GAME MODE DICE YES TEAM"));
+
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("GAME MODE DICE NO TEAM"));
+		}
 		WarmupTime = GameMode->WarmupTime;
 		MatchTime = GameMode->MatchTime;
 		CooldownTime = GameMode->CooldownTime;
 		LevelStartingTime = GameMode->LevelStartingTime;
 		MatchState = GameMode->GetMatchState();
-		ClientJoinMidgame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime);
+		ClientJoinMidgame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime, bShowTeamScores); // added the bShowTeamScores to the Client joinmidgame so we can pass it to OnMatchState Set
 	}
 }
 
-void ABlasterPlayerController::ClientJoinMidgame_Implementation(FName StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime)
+void ABlasterPlayerController::ClientJoinMidgame_Implementation(FName StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime, bool bIsTeamsMatch)
 {
 	WarmupTime = Warmup;
 	MatchTime = Match;
 	CooldownTime = Cooldown;
 	LevelStartingTime = StartingTime;
 	MatchState = StateOfMatch;
-	OnMatchStateSet(MatchState);
+	OnMatchStateSet(MatchState, bIsTeamsMatch); // added the bIsTeamsMatch here
 	if (BlasterHUD && MatchState == MatchState::WaitingToStart)
 	{
 		BlasterHUD->AddAnnouncement();
@@ -595,7 +597,7 @@ void ABlasterPlayerController::OnRep_MatchState()
 {
 	if (MatchState == MatchState::InProgress)
 	{
-		HandleMatchHasStarted();
+		HandleMatchHasStarted(bShowTeamScores);//Esto Lo Cambie
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
@@ -607,17 +609,17 @@ void ABlasterPlayerController::OnRep_MatchState()
 
 void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
 {
-	if(HasAuthority()) bShowTeamScores = bTeamsMatch;
-
+	UE_LOG(LogTemp, Warning, TEXT("HANDLE MATCH HAS STARTED CALLED"));
+	if (HasAuthority()) bShowTeamScores = bTeamsMatch;
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 	if (BlasterHUD)
 	{
-		if (BlasterHUD->CharacterOverlay == nullptr )BlasterHUD->AddCharacterOverlay();
+		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
 		if (BlasterHUD->Announcement)
 		{
 			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
 		}
-		if (!HasAuthority()) return;
+		//if (!HasAuthority()) return;
 		if (bTeamsMatch)
 		{
 			InitTeamScores();
@@ -626,6 +628,19 @@ void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
 		{
 			HideTeamScores();
 		}
+	}
+}
+
+void ABlasterPlayerController::OnRep_ShowTeamScores()
+{
+	UE_LOG(LogTemp, Warning, TEXT("SHOW TEAM SCORES REP CALLED"));
+	if (bShowTeamScores)
+	{
+		InitTeamScores();
+	}
+	else
+	{
+		HideTeamScores();
 	}
 }
 

@@ -187,11 +187,19 @@ void UCombatComponent::ServerStab_Implementation()
 	// Procesar el resultado del trace
 	if (bHit)
 	{
-		// El trace golpeó algo
-		AActor* HitActor = HitResult.GetActor();
-		if (HitActor)
+		if (Character->HasAuthority())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Trace hit actor: %s"), *HitActor->GetName());
+			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(HitResult.GetActor());
+			if (BlasterCharacter && Character->GetController())
+			{
+				UGameplayStatics::ApplyDamage(
+					BlasterCharacter,
+					240.f,
+					Character->GetController(),
+					Character,
+					UDamageType::StaticClass()
+				);
+			}
 		}
 	}
 }
@@ -546,8 +554,9 @@ void UCombatComponent::Reload()
 {
 	if (CarriedAmmo > 0 && CombatState == ECombatState::ECS_Unoccupied && EquippedWeapon && !EquippedWeapon->IsFull() && !bLocallyReloading)
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde CombatComponent"));
+		UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde CombatComponent"));
 		ServerReload();
+		HandleReload();
 		bLocallyReloading = true;
 	}
 }
@@ -555,15 +564,15 @@ void UCombatComponent::Reload()
 void UCombatComponent::ServerReload_Implementation()
 {
 	if (Character == nullptr || EquippedWeapon == nullptr) return;
-	//UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde ServerReload"));
+	UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde ServerReload"));
 	CombatState = ECombatState::ECS_Reloading;
-	if(Character->IsLocallyControlled()) HandleReload(); //ESTO FUE LO QUE CAMBIE
+	if(!Character->IsLocallyControlled()) HandleReload(); //ESTO FUE LO QUE CAMBIE
 }
 
 void UCombatComponent::HandleReload()
 {
 	if (Character == nullptr) return;
-	//UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde Handle Reload"));
+	UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde Handle Reload"));
 	Character->PlayReloadMontage();
 }
 

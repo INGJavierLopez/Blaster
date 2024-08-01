@@ -133,6 +133,8 @@ public:
 
 	void SetTeamColor(ETeam Team);
 
+	void SetGhostMode();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -372,7 +374,7 @@ private:
 
 	void HandleChangeVisibility();
 
-	UPROPERTY(ReplicatedUsing = OnRep_Visibility, VisibleAnywhere, Category = "Player ghost")
+	UPROPERTY(ReplicatedUsing = OnRep_Visibility, VisibleAnywhere, Category = "Player ghost",BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	float Visibility = 1.f;
 
 	UFUNCTION()
@@ -381,7 +383,6 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerChangeVisibility(float NewVisibility);
 	UPROPERTY(Replicated,BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-	bool bGhost = false;
 	bool bCanStab = true;
 
 	void HandleGhostAttack();
@@ -407,8 +408,7 @@ public:
 	FORCEINLINE float GetShield() const { return Shield; }
 	FORCEINLINE void SetShield(float Amount) { Shield = Amount; }
 	FORCEINLINE float GetMaxShield()const { return MaxShield; }
-	FORCEINLINE bool GetIsAGhost() const { return bGhost; }
-	FORCEINLINE void SetGhost(bool newGhost) { bGhost = newGhost; }
+	bool GetGhost() const;
 	UFUNCTION(BlueprintCallable)
 	void SetStab(bool newStab);
 	ECombatState GetCombatState() const;
@@ -419,7 +419,7 @@ public:
 	FORCEINLINE UBuffComponent* GetBuff() const { return Buff; }
 	bool IsLocallyReloading();
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() const { return LagCompensation; }
-	FORCEINLINE bool IsHoldingTheFLag() const;
+	bool IsHoldingTheFLag() const;
 	ETeam GetTeam();
 	void SetHoldingTheFlag(bool bHolding);
 	AWeapon* GetFlag();

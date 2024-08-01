@@ -37,7 +37,11 @@ public:
 
 	float LevelStartingTime = 0.f;
 
+	UPROPERTY(BlueprintReadWrite)
 	bool bTeamsMatch = false;
+
+	UPROPERTY(BlueprintReadWrite)
+	bool bGhostGame = false;
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;

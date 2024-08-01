@@ -5,6 +5,8 @@
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Blaster/GameState/BlasterGameState.h"
+#include "Kismet/GameplayStatics.h"
 
 
 void ABlasterPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -12,7 +14,7 @@ void ABlasterPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ABlasterPlayerState, Defeats);
 	DOREPLIFETIME(ABlasterPlayerState, Team);
-
+	DOREPLIFETIME(ABlasterPlayerState, bGhost);
 }
 
 void ABlasterPlayerState::AddToScore(float ScoreAmount)
@@ -61,6 +63,16 @@ void ABlasterPlayerState::AddToDefeats(int32 DefeatsAmount)
 	}
 }
 
+bool ABlasterPlayerState::IsGhostGameMode()
+{
+	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	if (BGameState)
+	{
+		return BGameState->bGhostMode;
+	}
+	return false;
+}
+
 void ABlasterPlayerState::OnRep_Defeats()
 {
 	Character = Character == nullptr ? Cast<ABlasterCharacter>(GetPawn()) : Character;
@@ -94,12 +106,15 @@ void ABlasterPlayerState::SetTeam(ETeam TeamToSet)
 	}
 }
 
-void ABlasterPlayerState::ServerSetTeam_Implementation(ETeam TeamToSet)
+void ABlasterPlayerState::SetGhost(bool NewGhost)
 {
-	Team = TeamToSet;
-	ABlasterCharacter* BCharacter = Cast<ABlasterCharacter>(GetPawn());
-	if (BCharacter)
+	bGhost = NewGhost;
+	if (bGhost)
 	{
-		BCharacter->SetTeamColor(Team);
+		if (Character)
+		{
+			Character->SetGhostMode();
+		}
 	}
 }
+

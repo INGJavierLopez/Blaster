@@ -171,43 +171,37 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterCharacter, Shield);
 	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 	DOREPLIFETIME(ABlasterCharacter, Visibility);
-	DOREPLIFETIME(ABlasterCharacter, bGhost);
+}
+
+void ABlasterCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	UpdateHUDAmmo();
+	UpdateHUDHealth();
+	UpdateHUDShield();
+	if (HasAuthority())
+	{
+		OnTakeAnyDamage.AddDynamic(this, &ABlasterCharacter::RecieveDamage);
+	}
+	if (AttachedGrenade)
+	{
+		AttachedGrenade->SetVisibility(false);
+	}
 }
 
 void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+
 	RotateInPlace(DeltaTime);
-	/*FString ActorName = GetName();
-	switch (GetTeam())
-	{
-	case ETeam::ET_RedTeam:
-		UE_LOG(LogTemp, Warning, TEXT("Soy ROJO | Soy: %s"), *ActorName);
-		break;
-
-	case ETeam::ET_BlueTeam:
-		UE_LOG(LogTemp, Warning, TEXT("Soy AZUl | Soy: %s"), *ActorName);
-		break;
-
-	default:
-		break;
-	}
-
-	if (GetTeam() == ETeam::ET_RedTeam)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Soy Rojo"));
-	}
-	if (GetTeam() == ETeam::ET_BlueTeam)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Soy Azul"));
-	}*/
-
-	CalculateVisibility();
-
 	HideCameraIfCharacterClose();
-	//initialize Score in HUD
 	PollInit();
+	if (IsLocallyControlled() && GetGhost())
+	{
+		CalculateVisibility();
+	}
 }
 
 //Esta funcion es heredada de la clase actor y esta replicaca mediante el movimiento del jugador
@@ -253,45 +247,52 @@ void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 	}
 	bElimmed = true;
 	PlayElimMontage();
-	// Start Dissolve Effect
+	// Start dissolve effect
 	if (DissolveMaterialInstance)
 	{
 		DynamicDissolveMaterialInstance = UMaterialInstanceDynamic::Create(DissolveMaterialInstance, this);
 		GetMesh()->SetMaterial(0, DynamicDissolveMaterialInstance);
-		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), 0.1f);
-		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Glow"), 120.f);
-
+		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), 0.55f);
+		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Glow"), 200.f);
 	}
 	StartDissolve();
-	// Disable character Movement
-	GetCharacterMovement()->DisableMovement();
-	GetCharacterMovement()->StopMovementImmediately();
+
+	// Disable character movement
 	bDisableGameplay = true;
+	GetCharacterMovement()->DisableMovement();
 	if (Combat)
 	{
 		Combat->FireButtonPressed(false);
 	}
-	if (BlasterPlayerController)
-	{
-		DisableInput(BlasterPlayerController);
-	}
-
-	// Disable Collision
+	// Disable collision
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	AttachedGrenade->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//spawn ElimBot
+
+	// Spawn elim bot
 	if (ElimBotEffect)
 	{
 		FVector ElimBotSpawnPoint(GetActorLocation().X, GetActorLocation().Y, GetActorLocation().Z + 200.f);
-		ElimBotComponent = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ElimBotEffect, ElimBotSpawnPoint,GetActorRotation());
+		ElimBotComponent = UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(),
+			ElimBotEffect,
+			ElimBotSpawnPoint,
+			GetActorRotation()
+		);
 	}
 	if (ElimBotSound)
 	{
-		UGameplayStatics::SpawnSoundAtLocation(this, ElimBotSound, GetActorLocation());
+		UGameplayStatics::SpawnSoundAtLocation(
+			this,
+			ElimBotSound,
+			GetActorLocation()
+		);
 	}
-	bool bHideSniperScope = IsLocallyControlled() && Combat && Combat->bAiming && Combat->EquippedWeapon && Combat->EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle;
-
+	bool bHideSniperScope = IsLocallyControlled() &&
+		Combat &&
+		Combat->bAiming &&
+		Combat->EquippedWeapon &&
+		Combat->EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle;
 	if (bHideSniperScope)
 	{
 		ShowSniperScopeWidget(false);
@@ -307,6 +308,7 @@ void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 		ElimDelay
 	);
 }
+
 
 void ABlasterCharacter::ElimTimerFinished()
 {
@@ -354,15 +356,9 @@ void ABlasterCharacter::OnPlayerStateInitialized()
 	BlasterPlayerState->AddToDefeats(0);
 	SetTeamColor(BlasterPlayerState->GetTeam());
 	SetSpawnPoint();
-	CalculateVisibility();
-	if (BlasterPlayerState->GetTeam() == ETeam::ET_RedTeam)
+	if (!GetGhost())
 	{
-		bGhost = true;
-	}
-	else
-	{
-		bGhost = false;
-		SpawnDefaultWeapon();
+		SpawnDefaultWeapon(); 
 	}
 }
 
@@ -443,56 +439,46 @@ void ABlasterCharacter::MulticastLostTheLead_Implementation()
 
 void ABlasterCharacter::SetTeamColor(ETeam Team)
 {
-	UE_LOG(LogTemp, Warning, TEXT("LLamado set team color"));
 	if (GetMesh() == nullptr || OriginalMaterial == nullptr) return;
 	switch (Team)
 	{
-		case ETeam::ET_NoTeam:
-			GetMesh()->SetMaterial(0, OriginalMaterial);
-			DissolveMaterialInstance = BlueDissolveMatInst;
-			
-			break;
-		case ETeam::ET_BlueTeam:
-			DissolveMaterialInstance = BlueDissolveMatInst;
-			if (BlueMaterial)
-			{
-				DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(BlueMaterial, this);
-				GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
-				DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
-				SpawnDefaultWeapon();
-			}
-			break;
-		case ETeam::ET_RedTeam:
-			DissolveMaterialInstance = RedDissolveMatInst;
-			bGhost = true;
-			if (RedMaterial)
-			{
-				DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(RedMaterial, this);
-				GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
-				DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
+	case ETeam::ET_NoTeam:
+		//UE_LOG(LogTemp, Warning, TEXT("Cayo aqui, NO TEAM"));
+		GetMesh()->SetMaterial(0, OriginalMaterial);
+		DissolveMaterialInstance = BlueDissolveMatInst;
+		break;
+	case ETeam::ET_BlueTeam:
+		//UE_LOG(LogTemp, Warning, TEXT("Cayo aqui, BLUE TEAM"));
 
-			}
-			break;
+		GetMesh()->SetMaterial(0, BlueMaterial);
+		DissolveMaterialInstance = BlueDissolveMatInst;
+		break;
+	case ETeam::ET_RedTeam:
+		//UE_LOG(LogTemp, Warning, TEXT("Cayo aqui, RED TEAM"));
+
+		GetMesh()->SetMaterial(0, RedMaterial);
+		DissolveMaterialInstance = RedDissolveMatInst;
+		break;
 	}
+	
 }
 
-void ABlasterCharacter::BeginPlay()
+void ABlasterCharacter::SetGhostMode()
 {
-	Super::BeginPlay();
-	
-	UpdateHUDAmmo();
-	UpdateHUDHealth();
-	UpdateHUDShield();
-	if (HasAuthority())
+	if (GetTeam() == ETeam::ET_RedTeam) 
 	{
-		OnTakeAnyDamage.AddDynamic(this, &ABlasterCharacter::RecieveDamage);
-	}
-	if (AttachedGrenade)
-	{
-		AttachedGrenade->SetVisibility(false);
-	}
-	
+		if (RedMaterial)
+		{
+			DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(RedMaterial, this);
+			GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
+			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"),Visibility);
+
+		}
+		DissolveMaterialInstance = RedDissolveMatInst;
+	}	
 }
+
+
 
 
 
@@ -861,7 +847,7 @@ void ABlasterCharacter::ReloadButtonPressed()
 
 	if (Combat)
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde Blaster Character"));
+		UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde Blaster Character"));
 		Combat->Reload();
 	}
 }
@@ -989,7 +975,7 @@ void ABlasterCharacter::Jump()
 
 void ABlasterCharacter::FireButtonPressed()
 {
-	if (GetTeam() == ETeam::ET_RedTeam && bCanStab && bGhost)
+	if (GetTeam() == ETeam::ET_RedTeam && bCanStab && GetGhost())
 	{
 		bCanStab = false;
 		UE_LOG(LogTemp, Warning, TEXT("Llamado"));
@@ -1096,15 +1082,39 @@ void ABlasterCharacter::UpdateHUDAmmo()
 
 void ABlasterCharacter::SpawnDefaultWeapon()
 {
+	//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WEAPON 1"));
+
+	//BlasterGameMode = BlasterGameMode == nullptr ? Cast<ABlasterGameMode>(GetWorld()->GetAuthGameMode()) : BlasterGameMode;
 	BlasterGameMode = BlasterGameMode == nullptr ? GetWorld()->GetAuthGameMode<ABlasterGameMode>() : BlasterGameMode;
 	UWorld* World = GetWorld();
-	if (BlasterGameMode && World &&!bElimmed && DefaultWeaponClass)
+	/*
+	if (BlasterGameMode)
 	{
+		//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO GM GOOD"));
+	}
+	if (World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WORLD GOOD"));
+	}
+	if (!bElimmed)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO ELIIMMED GOOD"));
+	}
+	if (DefaultWeaponClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO DWEAPON GOOD"));
+	}
+	*/
+	if (BlasterGameMode && World && !bElimmed && DefaultWeaponClass)
+	{
+		//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WEAPON 2"));
+
 		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(DefaultWeaponClass);
 		StartingWeapon->bDestroyWeapon = true;
 		if (Combat)
 		{
 			Combat->EquipWeapon(StartingWeapon);
+			//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WEAPON 0"));
 		}
 	}
 }
@@ -1116,17 +1126,27 @@ void ABlasterCharacter::PollInit()
 		BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
 		if (BlasterPlayerState)
 		{
-			
 			OnPlayerStateInitialized();
 
 			ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+
 			if (BlasterGameState && BlasterGameState->TopScoringPlayers.Contains(BlasterPlayerState))
 			{
 				MulticastGainedTheLead();
 			}
 		}
 	}
-	bGhost = GetTeam() == ETeam::ET_RedTeam;
+	if (BlasterPlayerController == nullptr)
+	{
+		BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+		if (BlasterPlayerController)
+		{
+			//if(!GetGhost()) SpawnDefaultWeapon();
+			UpdateHUDAmmo();
+			UpdateHUDHealth();
+			UpdateHUDShield();
+		}
+	}
 }
 
 
@@ -1257,7 +1277,7 @@ void ABlasterCharacter::CalculateVisibility()
 void ABlasterCharacter::ServerChangeVisibility_Implementation(float NewVisibility)
 {
 	Visibility = NewVisibility;
-	HandleChangeVisibility();
+	//HandleChangeVisibility();
 }
 
 void ABlasterCharacter::OnRep_Visibility()
@@ -1267,23 +1287,23 @@ void ABlasterCharacter::OnRep_Visibility()
 
 void ABlasterCharacter::HandleChangeVisibility()
 {
-	if (GetTeam() == ETeam::ET_RedTeam)
+	if (GetTeam() == ETeam::ET_RedTeam && GetGhost())
 	{
 		if (DynamicGohstMaterialInstance)
 		{
 			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
 		}
 	}
-	else if (GetTeam() == ETeam::ET_BlueTeam)
-	{
-		if (DynamicGohstMaterialInstance)
-		{
-			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), 1.f);
-		}
-	}
 }
 
 //actualizacion de la variable desde el servidor
+
+bool ABlasterCharacter::GetGhost() const
+{
+	if(BlasterPlayerState == nullptr) return false;
+
+	return BlasterPlayerState->GetGhost();
+}
 
 void ABlasterCharacter::SetStab(bool newStab)
 {

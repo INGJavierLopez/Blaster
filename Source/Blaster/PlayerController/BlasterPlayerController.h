@@ -31,7 +31,7 @@ public:
 
 	virtual void Tick(float Deltatime) override;
 
-	virtual float GetServerTime(); //Sybced with server world clock
+	virtual float GetServerTime(); //Synced with server world clock
 	virtual void ReceivedPlayer() override; //Sync with server clock as soon as possible
 
 	void OnMatchStateSet(FName State, bool bTeamsMatch = false);
@@ -79,7 +79,7 @@ protected:
 	void ServerCheckMatchState();
 
 	UFUNCTION(Client, Reliable)
-	void ClientJoinMidgame(FName StateOfMatch, float Warmup, float Match,float Cooldown, float StartingTime);
+	void ClientJoinMidgame(FName StateOfMatch, float Warmup, float Match,float Cooldown, float StartingTime,bool bIsTeamsMatch);
 
 	void HighPinWarning();
 	void StopHighPinWarning();

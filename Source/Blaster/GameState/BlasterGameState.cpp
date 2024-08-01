@@ -5,6 +5,27 @@
 #include "Net/UnrealNetwork.h"
 #include "Blaster/PlayerState/BlasterPlayerState.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
+#include "Blaster/GameMode/BlasterGameMode.h"
+#include "Blaster/GameMode/GhostsGameMode.h"
+
+#include "Kismet/GameplayStatics.h"
+
+void ABlasterGameState::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	ABlasterGameMode* GameMode = Cast<AGhostsGameMode>(UGameplayStatics::GetGameMode(this));
+	if (GameMode)
+	{
+		bGhostMode = true;
+		ServerSetGhostMode(bGhostMode);
+	}
+	else
+	{
+		bGhostMode = false;
+		ServerSetGhostMode(bGhostMode);
+	}
+}
 
 void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -13,6 +34,7 @@ void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterGameState, TopScoringPlayers);
 	DOREPLIFETIME(ABlasterGameState, RedTeamScore);
 	DOREPLIFETIME(ABlasterGameState, BlueTeamScore);
+	DOREPLIFETIME(ABlasterGameState, bGhostMode);
 }
 
 void ABlasterGameState::UpdateTopScore(ABlasterPlayerState* ScoringPlayer)
@@ -70,4 +92,9 @@ void ABlasterGameState::OnRep_BlueTeamScore()
 	{
 		BPlayer->SetHUDBlueTeamScore(BlueTeamScore);
 	}
+}
+
+void ABlasterGameState::ServerSetGhostMode_Implementation(bool bNewGhostMode)
+{
+	bGhostMode = bNewGhostMode;
 }

@@ -14,10 +14,16 @@ class BLASTER_API AGhostsGameMode : public ATeamsGameMode
 {
 	GENERATED_BODY()
 public:
+	virtual void Tick(float DeltaTime) override;
+
 	virtual void PlayerEliminated(class ABlasterCharacter* ElimmedCharacter, class ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	UFUNCTION(BlueprintImplementableEvent)
 	void GameModeSignal();
+
+	virtual void RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController);
+
 protected:
 	virtual void HandleMatchHasStarted() override;
+	
 };

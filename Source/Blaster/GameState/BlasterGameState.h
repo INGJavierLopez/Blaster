@@ -14,6 +14,7 @@ class BLASTER_API ABlasterGameState : public AGameState
 {
 	GENERATED_BODY()
 public:
+	virtual void BeginPlay();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void UpdateTopScore(class ABlasterPlayerState* ScoringPlayer);
 	UPROPERTY(Replicated)
@@ -41,6 +42,10 @@ public:
 	UFUNCTION()
 	void OnRep_BlueTeamScore();
 
+	UPROPERTY(Replicated,BlueprintReadWrite)
+	bool bGhostMode  = false;
+	UFUNCTION(Server,Reliable)
+	void ServerSetGhostMode(bool bNewGhostMode);
 private:
 	float TopScore = 0.f;
 };

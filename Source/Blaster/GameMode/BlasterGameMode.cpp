@@ -19,32 +19,29 @@ ABlasterGameMode::ABlasterGameMode()
 	bDelayedStart = true;
 }
 
-
 void ABlasterGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
 	LevelStartingTime = GetWorld()->GetTimeSeconds();
 }
-
-
 
 void ABlasterGameMode::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	//Entramos al nivel, esperando para inciar
+
 	if (MatchState == MatchState::WaitingToStart)
 	{
 		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f) //la espera termino, a jugar
+		if (CountdownTime <= 0.f)
 		{
 			StartMatch();
 		}
 	}
-	//estamos jugando, esperando a que termine la partida
 	else if (MatchState == MatchState::InProgress)
 	{
 		CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f) // el juego termino, mostrar ganador
+		if (CountdownTime <= 0.f)
 		{
 			SetMatchState(MatchState::Cooldown);
 		}
@@ -52,40 +49,40 @@ void ABlasterGameMode::Tick(float DeltaTime)
 	else if (MatchState == MatchState::Cooldown)
 	{
 		CountdownTime = CooldownTime + WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f) // se mostro el ganador, empezar de nuevo
+		if (CountdownTime <= 0.f)
 		{
 			RestartGame();
 		}
 	}
 }
 
-
 void ABlasterGameMode::OnMatchStateSet()
 {
 	Super::OnMatchStateSet();
-	//loop for each player controllers in order to set the new match state
+
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-	{	
+	{
 		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
 		if (BlasterPlayer)
 		{
-			BlasterPlayer->OnMatchStateSet(MatchState,bTeamsMatch);
+			BlasterPlayer->OnMatchStateSet(MatchState, bTeamsMatch);
 		}
 	}
-
 }
-
-
 
 float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage)
 {
 	return BaseDamage;
 }
 
-void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
+void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacter, class ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
 {
+	if (AttackerController == nullptr || AttackerController->PlayerState == nullptr) return;
+	if (VictimController == nullptr || VictimController->PlayerState == nullptr) return;
+
 	ABlasterPlayerState* AttackerPlayerState = AttackerController ? Cast<ABlasterPlayerState>(AttackerController->PlayerState) : nullptr;
 	ABlasterPlayerState* VictimPlayerState = VictimController ? Cast<ABlasterPlayerState>(VictimController->PlayerState) : nullptr;
+
 	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
 
 	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState && BlasterGameState)
@@ -95,6 +92,7 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 		{
 			PlayersCurrentlyInTheLead.Add(LeadPlayer);
 		}
+
 		AttackerPlayerState->AddToScore(1.f);
 		BlasterGameState->UpdateTopScore(AttackerPlayerState);
 		if (BlasterGameState->TopScoringPlayers.Contains(AttackerPlayerState))
@@ -105,6 +103,7 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 				Leader->MulticastGainedTheLead();
 			}
 		}
+
 		for (int32 i = 0; i < PlayersCurrentlyInTheLead.Num(); i++)
 		{
 			if (!BlasterGameState->TopScoringPlayers.Contains(PlayersCurrentlyInTheLead[i]))
@@ -121,16 +120,18 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABl
 	{
 		VictimPlayerState->AddToDefeats(1);
 	}
+
 	if (ElimmedCharacter)
 	{
 		ElimmedCharacter->Elim(false);
 	}
+
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
-		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
-		if (BlasterPlayerController, AttackerPlayerState, VictimPlayerState)
+		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayer && AttackerPlayerState && VictimPlayerState)
 		{
-			BlasterPlayerController->BroadcastElim(AttackerPlayerState, VictimPlayerState);
+			BlasterPlayer->BroadcastElim(AttackerPlayerState, VictimPlayerState);
 		}
 	}
 }
@@ -153,7 +154,6 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 
 void ABlasterGameMode::PlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
 {
-	//TODO call elim, passing in true for bLeftGame
 	if (PlayerLeaving == nullptr) return;
 	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
 	if (BlasterGameState && BlasterGameState->TopScoringPlayers.Contains(PlayerLeaving))
@@ -166,5 +166,3 @@ void ABlasterGameMode::PlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
 		CharacterLeaving->Elim(true);
 	}
 }
-
-

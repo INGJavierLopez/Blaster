@@ -233,7 +233,7 @@ private:
 
 	void InitializeCarriedAmmo();
 
-	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
+	UPROPERTY(ReplicatedUsing = OnRep_CombatState,BlueprintReadWrite,meta = (AllowPrivateAccess = "true"))
 	ECombatState CombatState = ECombatState::ECS_Unoccupied;
 
 	UFUNCTION()

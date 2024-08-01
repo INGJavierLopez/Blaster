@@ -66,6 +66,7 @@ void ATeamsGameMode::HandleMatchHasStarted()
 
 	if (BGameState)
 	{
+		
 		for (auto PState : BGameState->PlayerArray)
 		{
 			ABlasterPlayerState* BPState = Cast<ABlasterPlayerState>(PState.Get());
