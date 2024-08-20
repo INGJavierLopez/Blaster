@@ -45,6 +45,7 @@ public:
 
 	void AddAnnouncement();
 	void AddElimAnnouncement(FString ElimText);
+	void LoadAnnouncement();
 
 protected:
 	virtual void BeginPlay() override;

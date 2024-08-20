@@ -38,7 +38,7 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 				}
 				else if (MatchType == "Ghost")
 				{
-					World->ServerTravel(FString("/Game/Maps/Ghost?listen"));
+					World->ServerTravel(FString("/Game/Maps/GhostMap?listen"));
 				}
 				
 			}

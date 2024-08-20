@@ -50,4 +50,6 @@ public:
 	void SetTeam(ETeam TeamToSet);
 	void SetGhost(bool NewGhost);
 	FORCEINLINE bool GetGhost() { return bGhost; }
+	FORCEINLINE ABlasterCharacter* GetCharacter() { return Character; }
+	FORCEINLINE void SetCharacter(ABlasterCharacter* InCharacter) { Character = InCharacter; }
 };

@@ -9,28 +9,40 @@
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
+AGhostsGameMode::AGhostsGameMode()
+{
+	bGhostGame = true;
+	bTeamsMatch = true;
+}
+
+void AGhostsGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+	BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+
+}
+
 void AGhostsGameMode::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	bGhostGame = true;
+	PollInit();
 }
 
 void AGhostsGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
 {
 	ABlasterGameMode::PlayerEliminated(ElimmedCharacter, VictimController, AttackerController); //handle players score
-	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
 
 	ABlasterPlayerState* AttackerPlayerState = AttackerController ? Cast<ABlasterPlayerState>(AttackerController->PlayerState) : nullptr;
 
-	if (BGameState && AttackerPlayerState)
+	if (BlasterGameState && AttackerPlayerState)
 	{
 		if (AttackerPlayerState->GetTeam() == ETeam::ET_BlueTeam)
 		{
-			BGameState->BlueTeamScores();
+			BlasterGameState->BlueTeamScores();
 		}
 		if (AttackerPlayerState->GetTeam() == ETeam::ET_RedTeam)
 		{
-			BGameState->RedTeamScores();
+			BlasterGameState->RedTeamScores();
 		}
 	}
 }
@@ -39,22 +51,20 @@ void AGhostsGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	ABlasterGameMode::PostLogin(NewPlayer);
 	GameModeSignal();
-	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
-
-	if (BGameState)
+	if (BlasterGameState)
 	{
 		ABlasterPlayerState* BPState = NewPlayer->GetPlayerState<ABlasterPlayerState>();
 		if (BPState && BPState->GetTeam() == ETeam::ET_NoTeam)
 		{
-			if (BGameState->BlueTeam.Num() >= BGameState->RedTeam.Num())
+			if (BlasterGameState->BlueTeam.Num() >= BlasterGameState->RedTeam.Num())
 			{
-				BGameState->RedTeam.AddUnique(BPState);
+				BlasterGameState->RedTeam.AddUnique(BPState);
 				BPState->SetTeam(ETeam::ET_RedTeam);
 				BPState->SetGhost(true);
 			}
 			else
 			{
-				BGameState->BlueTeam.AddUnique(BPState);
+				BlasterGameState->BlueTeam.AddUnique(BPState);
 				BPState->SetTeam(ETeam::ET_BlueTeam);
 			}
 		}
@@ -72,35 +82,41 @@ void AGhostsGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* 
 	if (ElimmedController)
 	{
 		ABlasterPlayerState* BlasterPlayerState = ElimmedController->GetPlayerState<ABlasterPlayerState>();
-		//BlasterPlayerState->bPlayerEliminated = true; //Con esto vamos a tener el manejo de los jugadores eliminados, si todos estan eliminados se termina el juego
 	}
 }
 
 void AGhostsGameMode::HandleMatchHasStarted()
 {
 	ABlasterGameMode::HandleMatchHasStarted();
-	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
-
-	if (BGameState)
+	if (BlasterGameState)
 	{
 
-		for (auto PState : BGameState->PlayerArray)
+		for (auto PState : BlasterGameState->PlayerArray)
 		{
 			ABlasterPlayerState* BPState = Cast<ABlasterPlayerState>(PState.Get());
 			if (BPState && BPState->GetTeam() == ETeam::ET_NoTeam)
 			{
-				if (BGameState->BlueTeam.Num() >= BGameState->RedTeam.Num())
+				if (BlasterGameState->BlueTeam.Num() >= BlasterGameState->RedTeam.Num())
 				{
-					BGameState->RedTeam.AddUnique(BPState);
+					BlasterGameState->RedTeam.AddUnique(BPState);
 					BPState->SetTeam(ETeam::ET_RedTeam);
 					BPState->SetGhost(true);
 				}
 				else
 				{
-					BGameState->BlueTeam.AddUnique(BPState);
+					BlasterGameState->BlueTeam.AddUnique(BPState);
 					BPState->SetTeam(ETeam::ET_BlueTeam);
 				}
 			}
 		}
 	}
+}
+
+void AGhostsGameMode::PollInit()
+{
+	if (BlasterGameState == nullptr)
+	{
+		BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	}
+
 }

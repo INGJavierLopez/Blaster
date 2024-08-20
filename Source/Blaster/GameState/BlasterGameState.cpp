@@ -5,9 +5,10 @@
 #include "Net/UnrealNetwork.h"
 #include "Blaster/PlayerState/BlasterPlayerState.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
+#include "Blaster/Character/BlasterCharacter.h"
 #include "Blaster/GameMode/BlasterGameMode.h"
 #include "Blaster/GameMode/GhostsGameMode.h"
-
+#include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 
 void ABlasterGameState::BeginPlay()
@@ -64,6 +65,10 @@ void ABlasterGameState::RedTeamScores()
 	{
 		BPlayer->SetHUDRedTeamScore(RedTeamScore);
 	}
+	if (RedTeamScore >= BlueTeam.Num())
+	{
+		EndRound();
+	}
 }
 
 void ABlasterGameState::BlueTeamScores()
@@ -74,8 +79,24 @@ void ABlasterGameState::BlueTeamScores()
 	{
 		BPlayer->SetHUDBlueTeamScore(BlueTeamScore);
 	}
+	if (BlueTeamScore >= RedTeam.Num())
+	{
+		EndRound();
+	}
 }
 
+void ABlasterGameState::EndRound()
+{
+	BlasterGameMode = BlasterGameMode == nullptr ? GetWorld()->GetAuthGameMode<ABlasterGameMode>() : BlasterGameMode;
+
+	GetWorldTimerManager().SetTimer(
+		EndRoundTimerHandle,
+		BlasterGameMode,
+		&ABlasterGameMode::RequestEndRound,
+		1.f,
+		false
+	);
+}
 void ABlasterGameState::OnRep_RedTeamScore()
 {
 	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());

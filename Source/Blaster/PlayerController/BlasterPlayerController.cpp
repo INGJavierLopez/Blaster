@@ -129,6 +129,23 @@ void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerStat
 	}
 }
 
+void ABlasterPlayerController::SetGameplay(bool Enable)
+{
+	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
+
+	if (BlasterCharacter)
+	{
+		if (Enable)
+		{
+			BlasterCharacter->EnableMovement();
+		}
+		else
+		{
+			BlasterCharacter->DisableMovement();
+		}
+	}
+}
+
 void ABlasterPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -306,9 +323,12 @@ void ABlasterPlayerController::ClientJoinMidgame_Implementation(FName StateOfMat
 	LevelStartingTime = StartingTime;
 	MatchState = StateOfMatch;
 	OnMatchStateSet(MatchState, bIsTeamsMatch); // added the bIsTeamsMatch here
-	if (BlasterHUD && MatchState == MatchState::WaitingToStart)
+	if (BlasterHUD)
 	{
+		//if(MatchState == MatchState::WaitingToStart)
+
 		BlasterHUD->AddAnnouncement();
+
 	}
 }
 
@@ -506,7 +526,7 @@ void ABlasterPlayerController::SetHUDTime()
 	float TimeLeft = 0.f;
 	if (MatchState == MatchState::WaitingToStart) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
 	else if (MatchState == MatchState::InProgress) TimeLeft = WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
-	else if (MatchState == MatchState::Cooldown) TimeLeft = CooldownTime + WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
+	else if (MatchState == MatchState::Cooldown) TimeLeft = CooldownTime - (GetServerTime() - EndRoundTime);
 
 	uint32 SecondsLeft = FMath::CeilToInt(TimeLeft);
 	if (CountdownInt != SecondsLeft)
@@ -615,10 +635,10 @@ void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
 	if (BlasterHUD)
 	{
 		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
-		if (BlasterHUD->Announcement)
+		/*if (BlasterHUD->Announcement)
 		{
 			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
-		}
+		}*/
 		//if (!HasAuthority()) return;
 		if (bTeamsMatch)
 		{
@@ -646,50 +666,51 @@ void ABlasterPlayerController::OnRep_ShowTeamScores()
 
 void ABlasterPlayerController::HandleCooldown()
 {
+	SetGameplay(false);
+	return;
+	EndRoundTime = GetServerTime();
+	UE_LOG(LogTemp, Warning, TEXT("HandleCooldown Llamado"));
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 	if (BlasterHUD)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("HUD ES VALIDO"));
+		if (BlasterHUD->Announcement)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("ANNOUNCEMENT ES VALIDO"));
+
+		}
 		BlasterHUD->CharacterOverlay->RemoveFromParent();
 		bool bHUDValid = BlasterHUD->Announcement &&
 			BlasterHUD->Announcement->AnnouncementText &&
-			BlasterHUD->Announcement->InfoText;
+			BlasterHUD->Announcement->InformationText;
 
 		if (bHUDValid)
-		{
-			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
+		{		
+			/*IMPORANTE */BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
 			FString AnnouncementText = Announcement::NewMatchStartsIn;
 			BlasterHUD->Announcement->AnnouncementText->SetText(FText::FromString(AnnouncementText));
-			
+
 			ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
 			ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
-
 			if (BlasterGameState && BlasterPlayerState)
 			{
 				TArray<ABlasterPlayerState*> TopPlayers = BlasterGameState->TopScoringPlayers;
 				FString InfoTextString = bShowTeamScores ? GetTeamsInfoText(BlasterGameState) : GetInfoText(TopPlayers);
-				//FString InfoTextString = GetTeamsInfoText(BlasterGameState);
-				BlasterHUD->Announcement->InfoText->SetText(FText::FromString(InfoTextString));
-
+				UE_LOG(LogTemp, Warning, TEXT("%s"),*InfoTextString);
+				BlasterHUD->Announcement->InformationText->SetText(FText::FromString(InfoTextString));
 			}
-
 		}
 	}
-	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
-	if (BlasterCharacter)
-	{
-		BlasterCharacter->bDisableGameplay = true;
-		if (BlasterCharacter->GetCombat())
-		{
-			BlasterCharacter->GetCombat()->FireButtonPressed(false);
-		}
-
-	}
+	/* Desactivacion de movimiento*/
+	
 }
 
 FString ABlasterPlayerController::GetInfoText(const TArray<class ABlasterPlayerState*>& Players)
 {
 	ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
 	if (BlasterPlayerState == nullptr) return FString();
+	UE_LOG(LogTemp, Warning, TEXT("LLAMADO PARA SOLICITAR EL DE BLASTER"));
+
 	FString InfoTextString;
 	if (Players.Num() == 0)
 	{
@@ -719,11 +740,17 @@ FString ABlasterPlayerController::GetInfoText(const TArray<class ABlasterPlayerS
 
 FString ABlasterPlayerController::GetTeamsInfoText(ABlasterGameState* BlasterGameState)
 {
-	if (BlasterGameState == nullptr) return FString();
+	if (BlasterGameState == nullptr) 
+	{
+		return FString();
+
+	}
 	FString InfoTextString;
+	UE_LOG(LogTemp, Warning, TEXT("LLAMADO PARA SOLICITAR EL DE TEAMS"));
 
 	int32 RedTeamScore = BlasterGameState->RedTeamScore;
 	int32 BlueTeamScore = BlasterGameState->BlueTeamScore;
+	UE_LOG(LogTemp, Warning, TEXT("Valores: RED = %d | BLUE = %d"), RedTeamScore,BlueTeamScore);
 
 	if (RedTeamScore == 0 && BlueTeamScore == 0)
 	{

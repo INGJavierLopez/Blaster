@@ -29,6 +29,7 @@
 #include "Blaster/GameState/BlasterGameState.h"
 #include "Blaster/PlayerStart/TeamPlayerStart.h"
 
+
 ABlasterCharacter::ABlasterCharacter()
 {
 	bReplicates = true;
@@ -198,10 +199,6 @@ void ABlasterCharacter::Tick(float DeltaTime)
 	RotateInPlace(DeltaTime);
 	HideCameraIfCharacterClose();
 	PollInit();
-	if (IsLocallyControlled() && GetGhost())
-	{
-		CalculateVisibility();
-	}
 }
 
 //Esta funcion es heredada de la clase actor y esta replicaca mediante el movimiento del jugador
@@ -219,7 +216,6 @@ void ABlasterCharacter::Elim(bool bPlayerLeftGame)
 	MulticastElim(bPlayerLeftGame);
 	
 }
-
 
 void ABlasterCharacter::Destroyed()
 {
@@ -288,11 +284,13 @@ void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 			GetActorLocation()
 		);
 	}
+
 	bool bHideSniperScope = IsLocallyControlled() &&
 		Combat &&
 		Combat->bAiming &&
 		Combat->EquippedWeapon &&
 		Combat->EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle;
+
 	if (bHideSniperScope)
 	{
 		ShowSniperScopeWidget(false);
@@ -347,18 +345,21 @@ void ABlasterCharacter::DropOrDestroyWeapon(AWeapon* Weapon)
 	}
 }
 
-
-
 void ABlasterCharacter::OnPlayerStateInitialized()
 {
-	CharacterBPSignal();
+	CharacterBPSignal(TEXT("PlayerState Inicializado"));
 	BlasterPlayerState->AddToScore(0.f);
 	BlasterPlayerState->AddToDefeats(0);
+	BlasterPlayerState->SetCharacter(this);
 	SetTeamColor(BlasterPlayerState->GetTeam());
 	SetSpawnPoint();
 	if (!GetGhost())
 	{
 		SpawnDefaultWeapon(); 
+	}
+	else
+	{
+		SetGhostMode();
 	}
 }
 
@@ -465,22 +466,31 @@ void ABlasterCharacter::SetTeamColor(ETeam Team)
 
 void ABlasterCharacter::SetGhostMode()
 {
-	if (GetTeam() == ETeam::ET_RedTeam) 
+	if (GetGhost()) 
 	{
 		if (RedMaterial)
 		{
 			DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(RedMaterial, this);
+			if (DynamicGohstMaterialInstance)
+			{
+
+			}
 			GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
 			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"),Visibility);
 
 		}
 		DissolveMaterialInstance = RedDissolveMatInst;
+
+		//Timer
+		GetWorld()->GetTimerManager().SetTimer(
+			VisibilityTimerHandle,
+			this,
+			&ABlasterCharacter::CalculateVisibility,
+			0.2f,  // Interval in seconds
+			true    // Loop the timer
+		);
 	}	
 }
-
-
-
-
 
 
 void ABlasterCharacter::RotateInPlace(float DeltaTime)
@@ -858,8 +868,6 @@ void ABlasterCharacter::AimButtonPressed()
 
 	if (bDisableGameplay) return;
 
-	if (bDisableGameplay) return;
-
 	if (Combat)
 	{
 		Combat->SetAiming(true);
@@ -975,21 +983,23 @@ void ABlasterCharacter::Jump()
 
 void ABlasterCharacter::FireButtonPressed()
 {
-	if (GetTeam() == ETeam::ET_RedTeam && bCanStab && GetGhost())
-	{
-		bCanStab = false;
-		UE_LOG(LogTemp, Warning, TEXT("Llamado"));
-		
-		HandleGhostAttack();
-	}
 	if (Combat && Combat->bHoldingTheFlag) return;
 
 	if (bDisableGameplay) return;
 
 	if (Combat)
 	{
-		Combat->FireButtonPressed(true);
+		if (bCanStab && GetGhost())
+		{
+			bCanStab = false;
+			Combat->Stab();
+		}
+		else
+		{
+			Combat->FireButtonPressed(true);
+		}
 	}
+
 }
 
 void ABlasterCharacter::FireButtonReleased()
@@ -1060,7 +1070,6 @@ void ABlasterCharacter::OnRep_Shield(float LastShield)
 	}
 }
 
-
 void ABlasterCharacter::UpdateHUDShield()
 {
 	BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
@@ -1082,42 +1091,44 @@ void ABlasterCharacter::UpdateHUDAmmo()
 
 void ABlasterCharacter::SpawnDefaultWeapon()
 {
-	//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WEAPON 1"));
 
-	//BlasterGameMode = BlasterGameMode == nullptr ? Cast<ABlasterGameMode>(GetWorld()->GetAuthGameMode()) : BlasterGameMode;
 	BlasterGameMode = BlasterGameMode == nullptr ? GetWorld()->GetAuthGameMode<ABlasterGameMode>() : BlasterGameMode;
 	UWorld* World = GetWorld();
-	/*
-	if (BlasterGameMode)
-	{
-		//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO GM GOOD"));
-	}
-	if (World)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WORLD GOOD"));
-	}
-	if (!bElimmed)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO ELIIMMED GOOD"));
-	}
-	if (DefaultWeaponClass)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO DWEAPON GOOD"));
-	}
-	*/
+
 	if (BlasterGameMode && World && !bElimmed && DefaultWeaponClass)
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WEAPON 2"));
-
 		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(DefaultWeaponClass);
 		StartingWeapon->bDestroyWeapon = true;
 		if (Combat)
 		{
 			Combat->EquipWeapon(StartingWeapon);
-			//UE_LOG(LogTemp, Warning, TEXT("ESTO SE HA LLAMADO WEAPON 0"));
 		}
 	}
 }
+
+
+void ABlasterCharacter::EnableMovement()
+{
+	if (Combat)
+	{
+		bDisableGameplay = false;
+		//bUseControllerRotationYaw = true;
+		//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	}
+}
+
+void ABlasterCharacter::DisableMovement()
+{
+	if (Combat)
+	{
+		bDisableGameplay = true;
+		Combat->FireButtonPressed(false);
+		GetCharacterMovement()->DisableMovement();
+	}
+	
+}
+
+
 
 void ABlasterCharacter::PollInit()
 {
@@ -1148,8 +1159,6 @@ void ABlasterCharacter::PollInit()
 		}
 	}
 }
-
-
 
 void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
 {
@@ -1248,16 +1257,12 @@ ETeam ABlasterCharacter::GetTeam()
 	return BlasterPlayerState->GetTeam();
 }
 
-
-
 void ABlasterCharacter::SetHoldingTheFlag(bool bHolding)
 {
 	if (Combat == nullptr) return;
 
 	Combat->bHoldingTheFlag = false;
 }
-
-
 
 AWeapon* ABlasterCharacter::GetFlag()
 {
@@ -1268,36 +1273,38 @@ AWeapon* ABlasterCharacter::GetFlag()
 //Se calcula la velocidad en tick
 void ABlasterCharacter::CalculateVisibility()
 {
-	float Speed = GetVelocity().Size();
-	float NewVisibility = FMath::GetMappedRangeValueClamped(FVector2D(0.0f, GetCharacterMovement()->MaxWalkSpeed), FVector2D(0.0f, 0.6f), Speed);
-	ServerChangeVisibility(NewVisibility);
-	
+	if (IsLocallyControlled() && GetGhost())
+	{
+		float Speed = GetVelocity().Size();
+		float NewVisibility = FMath::GetMappedRangeValueClamped(FVector2D(0.0f, GetCharacterMovement()->MaxWalkSpeed), FVector2D(0.0f, 0.6f), Speed);
+		ServerChangeVisibility(NewVisibility);
+		HandleChangeVisibility();
+	}
 }
 
 void ABlasterCharacter::ServerChangeVisibility_Implementation(float NewVisibility)
 {
 	Visibility = NewVisibility;
-	//HandleChangeVisibility();
+	HandleChangeVisibility();
 }
 
 void ABlasterCharacter::OnRep_Visibility()
 {
-	HandleChangeVisibility();
+	if (!IsLocallyControlled())
+	{
+		HandleChangeVisibility();
+	}
 }
 
 void ABlasterCharacter::HandleChangeVisibility()
 {
-	if (GetTeam() == ETeam::ET_RedTeam && GetGhost())
+	if (DynamicGohstMaterialInstance)
 	{
-		if (DynamicGohstMaterialInstance)
-		{
-			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
-		}
+		DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
 	}
 }
 
 //actualizacion de la variable desde el servidor
-
 bool ABlasterCharacter::GetGhost() const
 {
 	if(BlasterPlayerState == nullptr) return false;
@@ -1308,12 +1315,4 @@ bool ABlasterCharacter::GetGhost() const
 void ABlasterCharacter::SetStab(bool newStab)
 {
 	bCanStab = newStab;
-}
-
-void ABlasterCharacter::HandleGhostAttack()
-{
-	if (Combat)
-	{
-		Combat->Stab();
-	}
 }

@@ -53,7 +53,6 @@ void ABlasterHUD::DrawHUD()
 void ABlasterHUD::BeginPlay()
 {
 	Super::BeginPlay();
-	//AddElimAnnouncement("Player1", "Player2");
 }
 
 void ABlasterHUD::AddCharacterOverlay()
@@ -74,6 +73,7 @@ void ABlasterHUD::AddAnnouncement()
 	{
 		Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
 		Announcement->AddToViewport();
+		Announcement->SetVisibility(ESlateVisibility::Hidden);
 	}
 }
 
@@ -118,6 +118,13 @@ void ABlasterHUD::AddElimAnnouncement(FString ElimText)
 			);
 		}
 	}
+}
+
+void ABlasterHUD::LoadAnnouncement()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
+	Announcement->SetVisibility(ESlateVisibility::Hidden);
 }
 
 void ABlasterHUD::ElimAnnouncementTimerFinished(UElimAnnouncement* MSGToRemove)

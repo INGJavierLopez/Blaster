@@ -25,15 +25,19 @@ public:
 	*/
 
 	void RedTeamScores();
+	void EndRound();
 	void BlueTeamScores();
 
+	UPROPERTY(BlueprintReadWrite)
 	TArray<ABlasterPlayerState*> RedTeam;
+	UPROPERTY(BlueprintReadWrite)
+
 	TArray<ABlasterPlayerState*> BlueTeam;
 
-	UPROPERTY(ReplicatedUsing = OnRep_RedTeamScore)
+	UPROPERTY(ReplicatedUsing = OnRep_RedTeamScore,BlueprintReadWrite)
 	float RedTeamScore = 0.f;
 
-	UPROPERTY(ReplicatedUsing = OnRep_BlueTeamScore)
+	UPROPERTY(ReplicatedUsing = OnRep_BlueTeamScore, BlueprintReadWrite)
 	float BlueTeamScore = 0.f;
 
 	UFUNCTION()
@@ -48,4 +52,8 @@ public:
 	void ServerSetGhostMode(bool bNewGhostMode);
 private:
 	float TopScore = 0.f;
+
+	FTimerHandle EndRoundTimerHandle;
+
+	class ABlasterGameMode* BlasterGameMode;
 };

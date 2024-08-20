@@ -23,6 +23,9 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void PlayerEliminated(class ABlasterCharacter* ElimmedCharacter, class ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController);
 	virtual void RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController);
+	UFUNCTION(BlueprintCallable)
+	virtual void ResetCharacters();
+	virtual void RequestEndRound();
 	void PlayerLeftGame(class ABlasterPlayerState* PlayerLeaving);
 	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage);
 
@@ -46,7 +49,9 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;
 private:
+	UPROPERTY(BlueprintReadOnly,meta = (AllowPrivateAccess = "true"))
 	float CountdownTime = 0.f;
+	float EndMatchTime = 0.f;
 public:
 	FORCEINLINE float  GetCountdownTime() { return CountdownTime; }
 };

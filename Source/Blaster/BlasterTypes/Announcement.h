@@ -3,9 +3,9 @@
 namespace Announcement
 {
 	const FString NewMatchStartsIn(TEXT("La nueva partida inicia en:"));
-	const FString ThereIsNoWinner(TEXT("No hay líder actualmente")); 
-	const FString YouAreTheWinner(TEXT("Eres el líder!")); 
-	const FString PlayersTiedForTheWin(TEXT("Los líderes son:"));
+	const FString ThereIsNoWinner(TEXT("No hay lider actualmente")); 
+	const FString YouAreTheWinner(TEXT("Eres el lider!")); 
+	const FString PlayersTiedForTheWin(TEXT("Los lideres son:"));
 	const FString TeamsTiedForTheWin(TEXT("Los equipos estan empatados"));
 	const FString RedTeam(TEXT("Equipo Rojo"));
 	const FString BlueTeam(TEXT("Equipo Azul"));

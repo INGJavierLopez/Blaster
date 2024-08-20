@@ -21,7 +21,7 @@ class BLASTER_API ABlasterCharacter : public ACharacter, public IInteractWithCro
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	void CharacterBPSignal(); //señal de ejecucion en el blueprint
+	void CharacterBPSignal(const FString& Text); //señal de ejecucion en el blueprint
 
 	ABlasterCharacter();
 	virtual void Tick(float DeltaTime) override;
@@ -47,7 +47,7 @@ public:
 	void MulticastElim(bool bPlayerLeftGame);
 	virtual void Destroyed() override;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated,BlueprintReadOnly)
 	bool bDisableGameplay = false;
 
 	UFUNCTION(BlueprintImplementableEvent)
@@ -59,6 +59,8 @@ public:
 
 	void UpdateHUDAmmo();
 	void SpawnDefaultWeapon();
+	void DisableMovement();
+	void EnableMovement();
 	/**
 	* Hit boxes used for server-side rewind
 	*/
@@ -385,7 +387,9 @@ private:
 	UPROPERTY(Replicated,BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bCanStab = true;
 
-	void HandleGhostAttack();
+	FTimerHandle VisibilityTimerHandle;
+
+
 public:	
 
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -408,6 +412,7 @@ public:
 	FORCEINLINE float GetShield() const { return Shield; }
 	FORCEINLINE void SetShield(float Amount) { Shield = Amount; }
 	FORCEINLINE float GetMaxShield()const { return MaxShield; }
+	UFUNCTION(BlueprintCallable)
 	bool GetGhost() const;
 	UFUNCTION(BlueprintCallable)
 	void SetStab(bool newStab);

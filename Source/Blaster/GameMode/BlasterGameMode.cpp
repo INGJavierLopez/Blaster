@@ -35,6 +35,7 @@ void ABlasterGameMode::Tick(float DeltaTime)
 		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
+			//SetMatchState(MatchState::WaitingToStart);
 			StartMatch();
 		}
 	}
@@ -44,14 +45,16 @@ void ABlasterGameMode::Tick(float DeltaTime)
 		if (CountdownTime <= 0.f)
 		{
 			SetMatchState(MatchState::Cooldown);
+			EndMatchTime = GetWorld()->GetTimeSeconds();
 		}
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
-		CountdownTime = CooldownTime + WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
 		if (CountdownTime <= 0.f)
 		{
-			RestartGame();
+			//RestartGame();
+			ResetCharacters();
 		}
 	}
 }
@@ -150,6 +153,36 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 		int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 		RestartPlayerAtPlayerStart(ElimmedController, PlayerStarts[Selection]);
 	}
+}
+
+void ABlasterGameMode::ResetCharacters()
+{
+	//Tiene que estar el juego terminado, iniciado desde el principio valla
+	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+	if (BlasterGameState) 
+	{
+		for (auto PState : BlasterGameState->PlayerArray)
+		{
+			ABlasterPlayerState* BPState = Cast<ABlasterPlayerState>(PState.Get());
+
+			ABlasterPlayerController* BPController = Cast<ABlasterPlayerController>(BPState->GetPlayerController());
+			if (BPController)
+			{
+				TArray<AActor*> PlayerStarts;
+				UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
+				int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
+				RestartPlayerAtPlayerStart(BPController, PlayerStarts[Selection]);
+				BPController->SetGameplay(true);
+			}
+		}
+	}
+}
+
+void ABlasterGameMode::RequestEndRound()
+{
+	EndMatchTime = GetWorld()->GetTimeSeconds();
+	SetMatchState(MatchState::Cooldown);
+
 }
 
 void ABlasterGameMode::PlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
