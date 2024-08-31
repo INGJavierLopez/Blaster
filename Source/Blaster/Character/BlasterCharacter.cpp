@@ -237,10 +237,19 @@ void ABlasterCharacter::Destroyed()
 void ABlasterCharacter::MulticastElim_Implementation(bool bPlayerLeftGame)
 {
 	bLeftGame = bPlayerLeftGame;
+
+	if (!bCanRespawn) return;
+
+	if (bLeftGame)
+	{
+		bCanRespawn = false;
+	}
+
 	if (BlasterPlayerController)
 	{
 		BlasterPlayerController->SetHUDWeaponAmmo(0);
 	}
+
 	bElimmed = true;
 	PlayElimMontage();
 	// Start dissolve effect
@@ -1089,6 +1098,23 @@ void ABlasterCharacter::UpdateHUDAmmo()
 	}
 }
 
+void ABlasterCharacter::UpdateHUDTeamScores()
+{
+	ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	if (BlasterGameState)
+	{
+		BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+		if (BlasterPlayerController && Combat && Combat->EquippedWeapon)
+		{
+			BlasterPlayerController->SetHUDRedTeamScore(BlasterGameState->RedTeamScore);
+			BlasterPlayerController->SetHUDRedTeamRounds(BlasterGameState->RedTeamRoundScore);
+			BlasterPlayerController->SetHUDBlueTeamScore(BlasterGameState->BlueTeamScore);
+			BlasterPlayerController->SetHUDBlueTeamRounds(BlasterGameState->BlueTeamRoundScore);
+		}
+	}
+	
+}
+
 void ABlasterCharacter::SpawnDefaultWeapon()
 {
 
@@ -1099,6 +1125,7 @@ void ABlasterCharacter::SpawnDefaultWeapon()
 	{
 		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(DefaultWeaponClass);
 		StartingWeapon->bDestroyWeapon = true;
+		StartingWeapon->ShowPickupWidget(false);
 		if (Combat)
 		{
 			Combat->EquipWeapon(StartingWeapon);
@@ -1156,6 +1183,7 @@ void ABlasterCharacter::PollInit()
 			UpdateHUDAmmo();
 			UpdateHUDHealth();
 			UpdateHUDShield();
+			UpdateHUDTeamScores();
 		}
 	}
 }

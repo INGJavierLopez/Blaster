@@ -35,6 +35,8 @@ void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterGameState, TopScoringPlayers);
 	DOREPLIFETIME(ABlasterGameState, RedTeamScore);
 	DOREPLIFETIME(ABlasterGameState, BlueTeamScore);
+	DOREPLIFETIME(ABlasterGameState, RedTeamRoundScore);
+	DOREPLIFETIME(ABlasterGameState, BlueTeamRoundScore);
 	DOREPLIFETIME(ABlasterGameState, bGhostMode);
 }
 
@@ -57,33 +59,6 @@ void ABlasterGameState::UpdateTopScore(ABlasterPlayerState* ScoringPlayer)
 	}
 }
 
-void ABlasterGameState::RedTeamScores()
-{
-	++RedTeamScore;
-	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
-	if (BPlayer)
-	{
-		BPlayer->SetHUDRedTeamScore(RedTeamScore);
-	}
-	if (RedTeamScore >= BlueTeam.Num())
-	{
-		EndRound();
-	}
-}
-
-void ABlasterGameState::BlueTeamScores()
-{
-	++BlueTeamScore;
-	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
-	if (BPlayer)
-	{
-		BPlayer->SetHUDBlueTeamScore(BlueTeamScore);
-	}
-	if (BlueTeamScore >= RedTeam.Num())
-	{
-		EndRound();
-	}
-}
 
 void ABlasterGameState::EndRound()
 {
@@ -97,6 +72,91 @@ void ABlasterGameState::EndRound()
 		false
 	);
 }
+/// 
+///  TEMAS ROUND SCORE
+/// 
+void ABlasterGameState::RedTeamRoundScores()
+{
+	++RedTeamRoundScore;
+	/* Local*/
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDRedTeamRounds(RedTeamRoundScore);
+	}
+	if (RedTeamRoundScore >= MaxRounds)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
+	}
+}
+
+void ABlasterGameState::BlueTeamRoundScores()
+{
+	++BlueTeamRoundScore;
+	/* Local*/
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDBlueTeamRounds(BlueTeamRoundScore);
+	}
+	if (BlueTeamRoundScore >= MaxRounds)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
+	}
+}
+
+void ABlasterGameState::OnRep_RedTeamRoundScore()
+{
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDRedTeamRounds(RedTeamRoundScore);
+	}
+	if (RedTeamRoundScore >= MaxRounds)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
+	}
+}
+void ABlasterGameState::OnRep_BlueTeamRoundScore()
+{
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDBlueTeamRounds(BlueTeamRoundScore);
+	}
+	if (BlueTeamRoundScore >= MaxRounds)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
+	}
+}
+/// 
+/// TEAM SCORES
+/// 
+
+void ABlasterGameState::RedTeamScores()
+{
+	++RedTeamScore;
+	/* Local*/
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDRedTeamScore(RedTeamScore);
+	}
+}
+
+
+
+void ABlasterGameState::BlueTeamScores()
+{
+	++BlueTeamScore;
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDBlueTeamScore(BlueTeamScore);
+	}
+}
+
+
 void ABlasterGameState::OnRep_RedTeamScore()
 {
 	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
@@ -112,6 +172,18 @@ void ABlasterGameState::OnRep_BlueTeamScore()
 	if (BPlayer)
 	{
 		BPlayer->SetHUDBlueTeamScore(BlueTeamScore);
+	}
+}
+
+void ABlasterGameState::ResetTeamScores()
+{
+	BlueTeamScore = 0;
+	RedTeamScore = 0;
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
+	{
+		BPlayer->SetHUDBlueTeamScore(BlueTeamScore);
+		BPlayer->SetHUDRedTeamScore(RedTeamScore);
 	}
 }
 

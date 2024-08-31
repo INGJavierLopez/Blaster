@@ -8,7 +8,9 @@
 
 namespace MatchState
 {
+	extern BLASTER_API const FName NewRound;
 	extern BLASTER_API const FName Cooldown; // Match duration has been reached. display winner and begin timer.
+	extern BLASTER_API const FName EndGame;
 }
 /**
  * 
@@ -29,6 +31,8 @@ public:
 	void PlayerLeftGame(class ABlasterPlayerState* PlayerLeaving);
 	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage);
 
+	virtual void EndGame(bool Teams, bool Color);
+
 	UPROPERTY(EditDefaultsOnly)
 	float WarmupTime = 10.f;
 
@@ -38,6 +42,9 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	float CooldownTime = 10.f;
 
+	UPROPERTY(EditDefaultsOnly)
+	float NewRoundTime = 3.f;
+
 	float LevelStartingTime = 0.f;
 
 	UPROPERTY(BlueprintReadWrite)
@@ -45,13 +52,23 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 	bool bGhostGame = false;
+
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	float CountdownTime = 0.f;
+
+	float EndMatchTime = 0.f;
+
+	float RoundStartTime = 0.f;
+
+	bool bNewRound = false;
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;
+
 private:
-	UPROPERTY(BlueprintReadOnly,meta = (AllowPrivateAccess = "true"))
-	float CountdownTime = 0.f;
-	float EndMatchTime = 0.f;
+	class ABlasterGameState* BlasterGameState;
+
 public:
 	FORCEINLINE float  GetCountdownTime() { return CountdownTime; }
+	FORCEINLINE ABlasterGameState* GetBlasterGameState() { return BlasterGameState; }
 };

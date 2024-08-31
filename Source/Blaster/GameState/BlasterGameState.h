@@ -25,8 +25,12 @@ public:
 	*/
 
 	void RedTeamScores();
-	void EndRound();
 	void BlueTeamScores();
+	void ResetTeamScores();
+	void RedTeamRoundScores();
+	void BlueTeamRoundScores();
+	void EndRound();
+
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<ABlasterPlayerState*> RedTeam;
@@ -34,6 +38,25 @@ public:
 
 	TArray<ABlasterPlayerState*> BlueTeam;
 
+	/*
+	*  ROUNDS
+	*/
+
+	UPROPERTY(ReplicatedUsing = OnRep_RedTeamRoundScore,BlueprintReadOnly)
+	float RedTeamRoundScore = 0.f;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_BlueTeamRoundScore,BlueprintReadOnly)
+	float BlueTeamRoundScore = 0.f;
+
+	UFUNCTION()
+	void OnRep_RedTeamRoundScore();
+
+	UFUNCTION()
+	void OnRep_BlueTeamRoundScore();
+
+	/*
+	*  SCORES
+	*/
 	UPROPERTY(ReplicatedUsing = OnRep_RedTeamScore,BlueprintReadWrite)
 	float RedTeamScore = 0.f;
 
@@ -46,14 +69,20 @@ public:
 	UFUNCTION()
 	void OnRep_BlueTeamScore();
 
+	/*
+	*  GHOST
+	*/
 	UPROPERTY(Replicated,BlueprintReadWrite)
 	bool bGhostMode  = false;
 	UFUNCTION(Server,Reliable)
 	void ServerSetGhostMode(bool bNewGhostMode);
+
 private:
 	float TopScore = 0.f;
 
 	FTimerHandle EndRoundTimerHandle;
 
 	class ABlasterGameMode* BlasterGameMode;
+
+	float MaxRounds = 3.f;
 };

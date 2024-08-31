@@ -101,6 +101,13 @@ void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResu
 	{
 		FString SettingsValue;
 		Result.Session.SessionSettings.Get(FName("MatchType"), SettingsValue);
+
+		FSessionInfo SessionInfo;
+		SessionInfo.SessionName = Result.Session.OwningUserName;
+		SessionInfo.CurrentPlayers = Result.Session.NumOpenPublicConnections;
+		SessionInfo.MaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
+		SessionInfo.SessionOwnersName = Result.Session.OwningUserName;
+
 		if (SettingsValue == MatchType)
 		{
 			MultiplayerSessionsSubsystem->JoinSession(Result);

@@ -5,7 +5,32 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Interfaces/OnlineSessionInterface.h"
+
 #include "Menu.generated.h"
+
+
+USTRUCT(BlueprintType)
+struct FSessionInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	FString SessionName;
+
+	UPROPERTY(BlueprintReadOnly)
+	FString SessionOwnersName;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 CurrentPlayers;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 MaxPlayers;
+
+	
+
+	// Otros campos relevantes de FOnlineSessionSearchResult
+};
+
 
 /**
  * 
@@ -18,6 +43,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void MenuSetup(int32 NumberOfPublicConnections = 4, FString TypeOfMatch = FString(TEXT("FreeForAll")), FString LobbyPath = FString(TEXT("/Game/ThirdPersonCPP/Maps/Lobby")));
 	
+	// Array para almacenar los resultados de la búsqueda de sesiones
+	UPROPERTY(BlueprintReadOnly, Category = "Sessions")
+	TArray<FSessionInfo> FoundSessions;
+	 
 protected:
 
 	virtual bool Initialize() override;
@@ -60,4 +89,5 @@ private:
 	FString MatchType{TEXT("FreeForAll")};
 
 	FString PathToLobby{TEXT("")};
+
 };

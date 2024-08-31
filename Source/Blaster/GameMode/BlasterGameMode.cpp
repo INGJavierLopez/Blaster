@@ -11,7 +11,9 @@
 
 namespace MatchState
 {
+	const FName NewRound = FName("NewRound");
 	const FName Cooldown = FName("Cooldown");
+	const FName EndGame = FName("EndGame");
 }
 
 ABlasterGameMode::ABlasterGameMode()
@@ -53,8 +55,7 @@ void ABlasterGameMode::Tick(float DeltaTime)
 		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
 		if (CountdownTime <= 0.f)
 		{
-			//RestartGame();
-			ResetCharacters();
+			RestartGame();
 		}
 	}
 }
@@ -62,13 +63,13 @@ void ABlasterGameMode::Tick(float DeltaTime)
 void ABlasterGameMode::OnMatchStateSet()
 {
 	Super::OnMatchStateSet();
-
+	//Itera por todos los jugadores y les avisa del Cambio del game State
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
-		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
-		if (BlasterPlayer)
+		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayerController)
 		{
-			BlasterPlayer->OnMatchStateSet(MatchState, bTeamsMatch);
+			BlasterPlayerController->OnMatchStateSet(MatchState, bTeamsMatch);
 		}
 	}
 }
@@ -76,6 +77,12 @@ void ABlasterGameMode::OnMatchStateSet()
 float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage)
 {
 	return BaseDamage;
+}
+/*
+* Color false = blue, true = red
+*/
+void ABlasterGameMode::EndGame(bool Teams, bool Color)
+{
 }
 
 void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacter, class ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
@@ -86,15 +93,26 @@ void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacte
 	ABlasterPlayerState* AttackerPlayerState = AttackerController ? Cast<ABlasterPlayerState>(AttackerController->PlayerState) : nullptr;
 	ABlasterPlayerState* VictimPlayerState = VictimController ? Cast<ABlasterPlayerState>(VictimController->PlayerState) : nullptr;
 
-	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+	BlasterGameState = BlasterGameState == nullptr ? GetGameState<ABlasterGameState>() : BlasterGameState; // check GameState
 
-	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState && BlasterGameState)
+	if (BlasterGameState)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Mano valido Primer Filtro"));
+
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Error segundo filtro"));
+
+	}
+	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState && BlasterGameState) 
 	{
 		TArray<ABlasterPlayerState*> PlayersCurrentlyInTheLead;
 		for (auto LeadPlayer : BlasterGameState->TopScoringPlayers)
 		{
 			PlayersCurrentlyInTheLead.Add(LeadPlayer);
 		}
+		UE_LOG(LogTemp, Warning, TEXT("Ejecutado Segundo Filtro"));
 
 		AttackerPlayerState->AddToScore(1.f);
 		BlasterGameState->UpdateTopScore(AttackerPlayerState);
@@ -137,6 +155,8 @@ void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacte
 			BlasterPlayer->BroadcastElim(AttackerPlayerState, VictimPlayerState);
 		}
 	}
+	UE_LOG(LogTemp, Warning, TEXT("Ejecutado PLAYER ELIMINATED EN BLASTER GAME MODE"));
+
 }
 
 void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController)
@@ -158,7 +178,7 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 void ABlasterGameMode::ResetCharacters()
 {
 	//Tiene que estar el juego terminado, iniciado desde el principio valla
-	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+
 	if (BlasterGameState) 
 	{
 		for (auto PState : BlasterGameState->PlayerArray)
@@ -188,7 +208,7 @@ void ABlasterGameMode::RequestEndRound()
 void ABlasterGameMode::PlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
 {
 	if (PlayerLeaving == nullptr) return;
-	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+
 	if (BlasterGameState && BlasterGameState->TopScoringPlayers.Contains(PlayerLeaving))
 	{
 		BlasterGameState->TopScoringPlayers.Remove(PlayerLeaving);

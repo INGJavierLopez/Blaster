@@ -58,9 +58,15 @@ public:
 	void UpdateHUDShield();
 
 	void UpdateHUDAmmo();
+
+	void UpdateHUDTeamScores();
+
 	void SpawnDefaultWeapon();
+
 	void DisableMovement();
+
 	void EnableMovement();
+
 	/**
 	* Hit boxes used for server-side rewind
 	*/
@@ -281,6 +287,8 @@ private:
 	void ElimTimerFinished();
 
 	bool bLeftGame = false;
+
+	bool bCanRespawn = true;
 
 
 	/**

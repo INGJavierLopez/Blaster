@@ -37,7 +37,9 @@ public:
 	void OnMatchStateSet(FName State, bool bTeamsMatch = false);
 
 	void HandleMatchHasStarted(bool bTeamsMatch = false);
+	void HandleNewRound();
 	void HandleCooldown();
+	void HandleEndGame();
 
 	float SingleTripTime = 0;
 
@@ -49,6 +51,8 @@ public:
 	void InitTeamScores();
 	void SetHUDRedTeamScore(int32 RedScore);
 	void SetHUDBlueTeamScore(int32 BlueScore);
+	void SetHUDRedTeamRounds(int32 RedRounds);
+	void SetHUDBlueTeamRounds(int32 BlueRounds);
 
 
 	void SetGameplay(bool Enable);
@@ -81,7 +85,7 @@ protected:
 	void ServerCheckMatchState();
 
 	UFUNCTION(Client, Reliable)
-	void ClientJoinMidgame(FName StateOfMatch, float Warmup, float Match,float Cooldown, float StartingTime,bool bIsTeamsMatch);
+	void ClientJoinMidgame(FName StateOfMatch, float Warmup, float Match,float Cooldown, float StartingTime,bool bIsTeamsMatch, float inRoundStartTime);
 
 	void HighPinWarning();
 	void StopHighPinWarning();
@@ -124,6 +128,7 @@ private:
 	float WarmupTime = 0.f;
 	float CooldownTime = 0.f;
 	float EndRoundTime = 0.f;
+	float RoundStartTime = 0.f;
 	uint32 CountdownInt = 0;
 
 	UPROPERTY(ReplicatedUsing = OnRep_MatchState)

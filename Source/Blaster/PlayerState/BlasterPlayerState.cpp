@@ -19,13 +19,18 @@ void ABlasterPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 void ABlasterPlayerState::AddToScore(float ScoreAmount)
 {
+	UE_LOG(LogTemp, Warning, TEXT("Se llamo add to Score"));
 	SetScore(GetScore() + ScoreAmount);
 	Character = Character == nullptr ? Cast<ABlasterCharacter>(GetPawn()) : Character;
 	if (Character)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("TEST Character Good"));
+
 		Controller = Controller == nullptr ? Cast<ABlasterPlayerController>(Character->Controller) : Controller;
 		if (Controller)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("TEST Controller Good"));
+
 			Controller->SetHUDScore(GetScore());
 		}
 	}

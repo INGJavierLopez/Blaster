@@ -36,6 +36,12 @@ public:
 	UTextBlock* RedTeamScore;
 
 	UPROPERTY(meta = (BindWidget))
+	UTextBlock* BlueTeamRounds;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* RedTeamRounds;
+
+	UPROPERTY(meta = (BindWidget))
 	UTextBlock* ScoreSpacerText;
 
 
@@ -56,6 +62,15 @@ public:
 
 	UPROPERTY(meta = (BindWidget))
 	class UImage* HighPingImage;
+
+	UPROPERTY(meta = (BindWidget))
+	class UImage* TeamsScoreImage;
+
+	UPROPERTY(meta = (BindWidget))
+	class UImage* BlueTeamScoreImage;
+
+	UPROPERTY(meta = (BindWidget))
+	class UImage* RedTeamScoreImage;
 
 	UPROPERTY(meta = (BindWidgetAnim),Transient)
 	UWidgetAnimation* HighPingAnimation;

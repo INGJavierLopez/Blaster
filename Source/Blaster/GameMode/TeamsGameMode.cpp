@@ -3,13 +3,122 @@
 
 #include "TeamsGameMode.h"
 #include "Blaster/GameState/BlasterGameState.h"
+#include "Blaster/GameState/BlasterGameState.h"
 #include "Blaster/Playerstate/BlasterPlayerState.h"
-#include "Kismet/GameplayStatics.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
+#include "Blaster/Character/BlasterCharacter.h"
+#include "Kismet/GameplayStatics.h"
 
 ATeamsGameMode::ATeamsGameMode()
 {
 	bTeamsMatch = true;
+}
+
+void ATeamsGameMode::Tick(float DeltaTime)
+{
+	AGameMode::Tick(DeltaTime);
+
+	if (MatchState == MatchState::WaitingToStart)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Estoy en Waiting To Start"));
+		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (/* CountdownTime <= 0.f  &&*/ false)
+		{
+			StartMatch();
+		}
+	}
+	else if (MatchState == MatchState::InProgress)
+	{
+		CountdownTime = MatchTime - (GetWorld()->GetTimeSeconds() + LevelStartingTime - RoundStartTime);
+		if (CountdownTime <= 0.f)
+		{
+			EndMatchTime = GetWorld()->GetTimeSeconds();
+			SetMatchState(MatchState::Cooldown);
+		}
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
+		if (CountdownTime <= 0.f)
+		{
+			EndMatchTime = GetWorld()->GetTimeSeconds();
+			bNewRound = true;
+			SetMatchState(MatchState::NewRound);
+
+			return;
+			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
+			if(BGameState)
+			{
+				if (BGameState->RedTeamRoundScore >= 3)
+				{
+					EndGame(true, true);
+					SetMatchState(MatchState::EndGame);
+
+				}
+				else if (BGameState->BlueTeamRoundScore >= 3)
+				{
+					EndGame(true, false);
+					SetMatchState(MatchState::EndGame);
+				}
+				else
+				{
+					SetMatchState(MatchState::NewRound);
+				}
+			}
+		}
+	}
+	else if (MatchState == MatchState::NewRound)
+	{
+		if (bNewRound)
+		{
+			bNewRound = false;
+			//Itera por todos los jugadores y les avisa del Cambio del game State
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+				if (BlasterPlayerController)
+				{
+					ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(BlasterPlayerController->GetPawn());
+					BlasterCharacter->Elim(false);
+				}
+
+			}
+			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
+			if (BGameState)
+			{
+				if (BGameState->RedTeamScore == BGameState->BlueTeamScore)
+				{
+					//mensaje de empate de ronda
+				}
+				else if (BGameState->RedTeamScore > BGameState->BlueTeamScore)
+				{
+					BGameState->RedTeamRoundScores();
+				}
+				else 
+				{
+					BGameState->BlueTeamRoundScores();
+				}
+				//Mostrar MEnsaje en pantalla
+			}
+		}
+		//
+		CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
+		if (CountdownTime <= 0.f)
+		{
+			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
+			if (BGameState)
+			{
+				BGameState->ResetTeamScores();
+			}
+			RoundStartTime = GetWorld()->GetTimeSeconds();
+			SetMatchState(MatchState::WaitingToStart);
+		}
+	}
+	else if (MatchState == MatchState::EndGame)
+	{
+		//El juego se termina, se muestra el ganador y se sacan a todos los gudaroes
+	}
+	
 }
 
 void ATeamsGameMode::PostLogin(APlayerController* NewPlayer)
@@ -111,7 +220,7 @@ float ATeamsGameMode::CalculateDamage(AController* Attacker, AController* Victim
 void ATeamsGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
 {
 	Super::PlayerEliminated(ElimmedCharacter, VictimController, AttackerController);
-
+	UE_LOG(LogTemp, Warning, TEXT("Se llamo player eliminated"));
 	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
 
 	ABlasterPlayerState* AttackerPlayerState = AttackerController ? Cast<ABlasterPlayerState>(AttackerController->PlayerState) : nullptr;
@@ -127,4 +236,9 @@ void ATeamsGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlas
 			BGameState->RedTeamScores();
 		}
 	}
+}
+
+void ATeamsGameMode::EndGame(bool Teams, bool Color)
+{
+
 }
