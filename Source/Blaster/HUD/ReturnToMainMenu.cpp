@@ -106,6 +106,7 @@ void UReturnToMainMenu::MenuTearDown()
 
 void UReturnToMainMenu::ReturnButtonClicked()
 {
+
 	ReturnButton->SetIsEnabled(false);
 	UWorld* World = GetWorld();
 	if (World)

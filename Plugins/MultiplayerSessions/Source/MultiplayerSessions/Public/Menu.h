@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h" 
 
 #include "Menu.generated.h"
 
@@ -15,16 +16,16 @@ struct FSessionInfo
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadOnly)
-	FString SessionName;
+	FString SessionMatchType;
 
 	UPROPERTY(BlueprintReadOnly)
 	FString SessionOwnersName;
 
 	UPROPERTY(BlueprintReadOnly)
-	int32 CurrentPlayers;
+	FString Players;
 
 	UPROPERTY(BlueprintReadOnly)
-	int32 MaxPlayers;
+	FString Ping;
 
 	
 
@@ -47,6 +48,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Sessions")
 	TArray<FSessionInfo> FoundSessions;
 	 
+	UPROPERTY(meta = (BindWidget))
+	class UWidgetSwitcher* WidgetSwitcher;
 protected:
 
 	virtual bool Initialize() override;
@@ -63,6 +66,18 @@ protected:
 	UFUNCTION()
 	void OnStartSession(bool bWasSuccessful);
 
+	UPROPERTY(BlueprintReadOnly,meta = (BindWidget))
+	class UCreateGame* CreateGame;
+
+	UPROPERTY(BlueprintReadOnly,meta = (BindWidget))
+	class UServerBrowser* ServerBrowser;
+	UFUNCTION(BlueprintImplementableEvent)
+	void  AddServerItem(FSessionInfo SessionInfo);
+	UFUNCTION(BlueprintCallable)
+	void GetServerBrowserItem(class UServerBrowserItem* Item);
+
+	class FOnlineSessionSearchResult TempResult;
+
 private:
 
 	UPROPERTY(meta = (BindWidget))
@@ -75,7 +90,13 @@ private:
 	void HostButtonClicked();
 
 	UFUNCTION()
+	void CreateGameButtonClicked();
+
+	UFUNCTION()
 	void JoinButtonClicked();
+
+	UFUNCTION()
+	void FindSessions();
 
 	void MenuTearDown();
 
@@ -90,4 +111,6 @@ private:
 
 	FString PathToLobby{TEXT("")};
 
+	UFUNCTION()
+	void BackToMenu();
 };

@@ -47,6 +47,7 @@ public:
 	void ServerLaunchGrenade(const FVector_NetQuantize& Target);
 
 	void PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount);
+	UPROPERTY(BlueprintReadOnly)
 	bool bLocallyReloading = false;
 
 	UFUNCTION(BlueprintCallable) //Funcion llamada desde el ABP para  reestablecer las variables para poder volver a hacer stab

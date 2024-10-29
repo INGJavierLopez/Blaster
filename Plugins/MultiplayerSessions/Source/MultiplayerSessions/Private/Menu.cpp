@@ -2,9 +2,16 @@
 
 
 #include "Menu.h"
+#include "CreateGame.h"
+#include "ServerBrowser.h"
+#include "ServerBrowserItem.h"
+
 #include "Components/Button.h"
+#include "Components/WidgetSwitcher.h"
+#include "Components/ScrollBox.h"
+#include "Components/TextBlock.h"
+
 #include "MultiplayerSessionsSubsystem.h"
-#include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
 
 void UMenu::MenuSetup(int32 NumberOfPublicConnections, FString TypeOfMatch, FString LobbyPath)
@@ -61,7 +68,16 @@ bool UMenu::Initialize()
 	{
 		JoinButton->OnClicked.AddDynamic(this, &ThisClass::JoinButtonClicked);
 	}
-
+	if (CreateGame)
+	{
+		CreateGame->CrearPartida_Button->OnClicked.AddDynamic(this, &ThisClass::CreateGameButtonClicked);
+		CreateGame->BackToMenu_Button->OnClicked.AddDynamic(this, &ThisClass::BackToMenu);
+	}
+	if (ServerBrowser)
+	{
+		ServerBrowser->BackToMenu_Button->OnClicked.AddDynamic(this, &ThisClass::BackToMenu);
+		ServerBrowser->SearchButton->OnClicked.AddDynamic(this, &ThisClass::FindSessions);
+	}
 	return true;
 }
 
@@ -90,24 +106,79 @@ void UMenu::OnCreateSession(bool bWasSuccessful)
 	}
 }
 
+void UMenu::FindSessions()
+{
+	JoinButton->SetIsEnabled(false);
+	if (MultiplayerSessionsSubsystem)
+	{
+		MultiplayerSessionsSubsystem->FindSessions(10000);
+	}
+}
+
 void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessful)
 {
 	if (MultiplayerSessionsSubsystem == nullptr)
 	{
+
 		return;
 	}
-
+	/*
+	FSessionInfo SessionInfot;
+	SessionInfot.SessionMatchType = TEXT("Hola");
+	SessionInfot.SessionOwnersName = TEXT("Hola");
+	SessionInfot.Players = TEXT("Hola");
+	SessionInfot.Ping = TEXT("Hola");
+	AddServerItem(SessionInfot);*/
+	
+	if(SessionResults.Num() == 0)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				15.f,
+				FColor::Red,
+				FString(TEXT("No se Encontraron sesiones!!!"))
+			);
+		}
+	}
+	if (ServerBrowser->ServerList_SB == nullptr)
+	{
+		return;
+	}
+	else
+	{
+		/*
+		ServerBrowser->ServerList_SB->ClearChildren();
+		ServerBrowser->ServerList_SB->InsertChildAt()ñ
+		FSessionInfo SessionInfot;
+		SessionInfot.SessionMatchType = TEXT("Test MT");
+		SessionInfot.SessionOwnersName = TEXT("Test OW");
+		SessionInfot.Players = TEXT("Test 1/1");
+		SessionInfot.Ping = TEXT("Test 11ms");
+		AddServerItem(SessionInfot);
+		*/
+	}
+	
 	for (auto Result : SessionResults)
 	{
 		FString SettingsValue;
 		Result.Session.SessionSettings.Get(FName("MatchType"), SettingsValue);
-
+		
 		FSessionInfo SessionInfo;
-		SessionInfo.SessionName = Result.Session.OwningUserName;
-		SessionInfo.CurrentPlayers = Result.Session.NumOpenPublicConnections;
-		SessionInfo.MaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
-		SessionInfo.SessionOwnersName = Result.Session.OwningUserName;
-
+		// Ejemplo de agregar un TextBlock al ScrollBox
+		FString MatchTypeText = FString::Printf(TEXT("Tipo de Partida: %s"), *SettingsValue);
+		FString OwnersNameText = FString::Printf(TEXT("Creada por: %s"), *Result.Session.OwningUserName);
+		FString PlayersText = FString::Printf(TEXT("%d/%d Jugadores"), Result.Session.NumOpenPublicConnections, Result.Session.SessionSettings.NumPublicConnections);
+		FString PingText = FString::Printf(TEXT("%d ms"), Result.PingInMs);
+		SessionInfo.SessionMatchType = MatchTypeText;
+		SessionInfo.SessionOwnersName = OwnersNameText;
+		SessionInfo.Players = PlayersText;
+		SessionInfo.Ping = PingText;
+		TempResult = Result;
+		AddServerItem(SessionInfo);
+		//NewServerBrowserItem->Result = Result;
+		return;
 		if (SettingsValue == MatchType)
 		{
 			MultiplayerSessionsSubsystem->JoinSession(Result);
@@ -118,6 +189,12 @@ void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResu
 	{
 		JoinButton->SetIsEnabled(true);
 	}
+	
+}
+
+void UMenu::GetServerBrowserItem(UServerBrowserItem* Item)
+{
+	Item->Result = TempResult;
 }
 
 void UMenu::OnJoinSession(EOnJoinSessionCompleteResult::Type Result)
@@ -148,23 +225,40 @@ void UMenu::OnStartSession(bool bWasSuccessful)
 {
 }
 
+
+
 void UMenu::HostButtonClicked()
+{
+	if (WidgetSwitcher)
+	{
+		WidgetSwitcher->SetActiveWidgetIndex(1);
+	}
+}
+
+void UMenu::CreateGameButtonClicked()
 {
 	HostButton->SetIsEnabled(false);
 	if (MultiplayerSessionsSubsystem)
 	{
-		MultiplayerSessionsSubsystem->CreateSession(NumPublicConnections, MatchType);
+		if (CreateGame)
+		{
+			MultiplayerSessionsSubsystem->CreateSession(CreateGame->NumPublicConnections, CreateGame->MatchType);
+		}
 	}
 }
 
 void UMenu::JoinButtonClicked()
 {
-	JoinButton->SetIsEnabled(false);
-	if (MultiplayerSessionsSubsystem)
+	if (WidgetSwitcher)
 	{
-		MultiplayerSessionsSubsystem->FindSessions(10000);
+		WidgetSwitcher->SetActiveWidgetIndex(2);
 	}
+	return;
+
+	
 }
+
+
 
 void UMenu::MenuTearDown()
 {
@@ -181,6 +275,15 @@ void UMenu::MenuTearDown()
 		}
 	}
 }
+
+void UMenu::BackToMenu()
+{
+	if (WidgetSwitcher)
+	{
+		WidgetSwitcher->SetActiveWidgetIndex(0);
+	}
+}
+
 
 void UMenu::NativeDestruct()
 {

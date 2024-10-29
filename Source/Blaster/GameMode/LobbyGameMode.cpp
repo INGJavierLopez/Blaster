@@ -8,7 +8,15 @@
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
-	
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			15.f,
+			FColor::Blue,
+			FString(TEXT("Entroooooooooooooo"))
+		);
+	}
 	int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
 
 	UGameInstance* GameInstance = GetGameInstance();
@@ -16,7 +24,36 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		UMultiplayerSessionsSubsystem* Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
 		check(Subsystem);
-		if (NumberOfPlayers == Subsystem->DesiredNumPublicConnections)
+		if (Subsystem->DesiredNumPublicConnections == 2)
+		{
+			FString PingText = FString::Printf(TEXT("Numero de conexiones publicas de la sesion %d"), Subsystem->DesiredNumPublicConnections);
+
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					-1,
+					15.f,
+					FColor::Red,
+					PingText
+				);
+			}
+		}
+		else
+		{
+			FString PingText = FString::Printf(TEXT("Otro valor"));
+
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					-1,
+					15.f,
+					FColor::Red,
+					PingText
+				);
+			}
+		}
+		
+		if (NumberOfPlayers >= Subsystem->DesiredNumPublicConnections)
 		{
 			UWorld* World = GetWorld();
 			if (World)
@@ -45,3 +82,18 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 		}
 	}
 }
+
+
+void ALobbyGameMode::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	UGameInstance* GameInstance = GetGameInstance();
+	if (GameInstance)
+	{
+		UMultiplayerSessionsSubsystem* Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
+		check(Subsystem);
+		//FString PingText = FString::Printf(TEXT("Numero de conexiones publicas de la sesion %d"), Subsystem->DesiredNumPublicConnections);
+		Prueba(Subsystem->DesiredNumPublicConnections, DeltaSeconds);
+	}
+}
+

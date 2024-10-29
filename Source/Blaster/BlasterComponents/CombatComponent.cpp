@@ -650,6 +650,7 @@ void UCombatComponent::OnRep_CombatState()
 		if(Character && !Character->IsLocallyControlled()) HandleReload();
 		break;
 	case ECombatState::ECS_Unoccupied:
+		bLocallyReloading = false;
 		if (bFireButtonPressed)
 		{
 			Fire();

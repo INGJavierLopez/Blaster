@@ -14,6 +14,7 @@ class BLASTER_API UReturnToMainMenu : public UUserWidget
 {
 	GENERATED_BODY()
 public:
+	UFUNCTION(BlueprintCallable)
 	void MenuSetup();
 	void MenuTearDown();
 

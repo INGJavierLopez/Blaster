@@ -28,6 +28,7 @@
 #include "NiagaraComponent.h"
 #include "Blaster/GameState/BlasterGameState.h"
 #include "Blaster/PlayerStart/TeamPlayerStart.h"
+#include "Blaster/GameMode/LobbyGameMode.h"
 
 
 ABlasterCharacter::ABlasterCharacter()
@@ -338,6 +339,14 @@ void ABlasterCharacter::ServerLeaveGame_Implementation()
 	if (BlasterGameMode && BlasterPlayerState)
 	{
 		BlasterGameMode->PlayerLeftGame(BlasterPlayerState);
+	}
+	else
+	{
+		ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>();
+		if (LobbyGameMode)
+		{
+			Elim(true);
+		}
 	}
 }
 
@@ -759,6 +768,12 @@ void ABlasterCharacter::RecieveDamage(AActor* DamagedActor, float Damage, const 
 
 	UpdateHUDHealth();
 	UpdateHUDShield();
+	if (Combat)
+	{
+		Combat->FinishReloading();
+		Combat->bLocallyReloading = false;
+		Combat->CombatState = ECombatState::ECS_Unoccupied;
+	}
 	PlayHitReactMontage();
 	if (Health == 0.f)
 	{
@@ -1057,6 +1072,12 @@ void ABlasterCharacter::OnRep_Health(float LastHealth)
 	UpdateHUDHealth();
 	if (Health < LastHealth)
 	{
+		if (Combat)
+		{
+			//Combat->FinishReloading();
+			Combat->bLocallyReloading = false;
+			//Combat->CombatState = ECombatState::ECS_Unoccupied;
+		}
 		PlayHitReactMontage();
 	}
 }

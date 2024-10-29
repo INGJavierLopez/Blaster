@@ -16,4 +16,10 @@ class BLASTER_API ALobbyGameMode : public AGameMode
 	
 public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void Prueba(int32 dato, float DeltaSeconds);
+
+	virtual void Tick(float DeltaSeconds) override;
+
 };
