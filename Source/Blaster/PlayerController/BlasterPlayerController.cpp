@@ -4,6 +4,7 @@
 #include "BlasterPlayerController.h"
 #include "Blaster/HUD/BlasterHUD.h"
 #include "Blaster/HUD/CharacterOverlay.h"
+#include "Blaster/HUD/EndRound.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Blaster/Character/BlasterCharacter.h"
@@ -35,18 +36,15 @@ void ABlasterPlayerController::InitTeamScores()
 		BlasterHUD->CharacterOverlay->BlueTeamRounds &&
 		BlasterHUD->CharacterOverlay->TeamsScoreImage &&
 		BlasterHUD->CharacterOverlay->BlueTeamScoreImage &&
-		BlasterHUD->CharacterOverlay->RedTeamScoreImage &&
-		BlasterHUD->CharacterOverlay->ScoreSpacerText;
+		BlasterHUD->CharacterOverlay->RedTeamScoreImage;
 
 	if (bHUDValid)
 	{
 		FString Zero("0");
-		FString Spacer("|");
 		ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
 
 		BlasterHUD->CharacterOverlay->RedTeamScore->SetText(FText::FromString(Zero));
 		BlasterHUD->CharacterOverlay->BlueTeamScore->SetText(FText::FromString(Zero));
-		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetText(FText::FromString(Spacer));
 		if (BlasterGameState)
 		{
 			FString RTRounds = FString::Printf(TEXT("%d"), (int32)BlasterGameState->RedTeamRoundScore);
@@ -78,14 +76,12 @@ void ABlasterPlayerController::HideTeamScores()
 		BlasterHUD->CharacterOverlay->BlueTeamRounds &&
 		BlasterHUD->CharacterOverlay->TeamsScoreImage &&
 		BlasterHUD->CharacterOverlay->BlueTeamScoreImage &&
-		BlasterHUD->CharacterOverlay->RedTeamScoreImage &&
-		BlasterHUD->CharacterOverlay->ScoreSpacerText;
+		BlasterHUD->CharacterOverlay->RedTeamScoreImage;
 
 	if (bHUDValid)
 	{
 		BlasterHUD->CharacterOverlay->RedTeamScore->SetText(FText());
 		BlasterHUD->CharacterOverlay->BlueTeamScore->SetText(FText());
-		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetText(FText());
 		BlasterHUD->CharacterOverlay->RedTeamRounds->SetText(FText());
 		BlasterHUD->CharacterOverlay->BlueTeamRounds->SetText(FText());
 		BlasterHUD->CharacterOverlay->TeamsScoreImage->SetVisibility(ESlateVisibility::Hidden);
@@ -168,7 +164,7 @@ void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerStat
 			}
 			if (Victim == Self && Attacker != Self)
 			{
-				ElimAnnouncementText = FString::Printf(TEXT("%s te ha eliminado"), *Victim->GetPlayerName());
+				ElimAnnouncementText = FString::Printf(TEXT("%s te ha eliminado"), *Attacker->GetPlayerName());
 				BlasterHUD->AddElimAnnouncement(ElimAnnouncementText);
 				return;
 			}
@@ -207,6 +203,71 @@ void ABlasterPlayerController::SetGameplay(bool Enable)
 	}
 }
 
+void ABlasterPlayerController::HandleRoundScore(float Red, float Blue, int32 CurrentRound, EEndRoundType EndMatchType)
+{
+	//Crea el widget de ronda finalizada
+	//actualiza el score actual de las rondas
+	//SetHUDTime actualiza el tiempo
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD)
+	{
+		if (BlasterHUD->EndRound == nullptr) BlasterHUD->AddEndRound();
+		if (BlasterHUD->EndRound)
+		{
+			if (!BlasterHUD->EndRound->IsVisible()) BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Visible);
+			bool EndRoundValid = BlasterHUD->EndRound->RedTeamScoreText &&
+				BlasterHUD->EndRound->BlueTeamScoreText &&
+				BlasterHUD->EndRound->RoundText &&
+				BlasterHUD->EndRound->NextRoundText &&
+				BlasterHUD->EndRound->WinnerText;
+			if (!EndRoundValid) return;
+
+			FString PastRoundText = FString::Printf(TEXT("Ronda %d Finalizada"),CurrentRound -1);
+			BlasterHUD->EndRound->RoundText->SetText(FText::FromString(PastRoundText));
+
+			FString Winner;
+			if (EndMatchType == EEndRoundType::ERT_RedTeam)
+			{
+				Winner = FString::Printf(TEXT("Gana el equipo Rojo"), CurrentRound - 1);
+			}
+			else if (EndMatchType == EEndRoundType::ERT_BlueTeam)
+			{
+				Winner = FString::Printf(TEXT("Gana el equipo Azul"), CurrentRound - 1);
+			}
+			else if (EndMatchType == EEndRoundType::ERT_Draw)
+			{
+				Winner = FString::Printf(TEXT("Empate"), CurrentRound - 1);
+			}
+			BlasterHUD->EndRound->WinnerText->SetText(FText::FromString(Winner));
+
+
+			FString RedTeamText = FString::Printf(TEXT("%d"), (int32)Red);
+			BlasterHUD->EndRound->RedTeamScoreText->SetText(FText::FromString(RedTeamText));
+			//GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, RedTeamText);
+
+			FString BlueTeamText = FString::Printf(TEXT("%d"), (int32)Blue);
+			BlasterHUD->EndRound->BlueTeamScoreText->SetText(FText::FromString(BlueTeamText));
+			//GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, BlueTeamText);
+
+			FString NewRoundText = FString::Printf(TEXT("Ronda %d"), CurrentRound);
+			BlasterHUD->EndRound->NextRoundText->SetText(FText::FromString(NewRoundText));
+			switch (EndMatchType)
+			{
+				case EEndRoundType::ERT_RedTeam:
+					BlasterHUD->EndRound->PlayAnimTeamRoundScores(false);
+					break;
+				case EEndRoundType::ERT_BlueTeam:
+					BlasterHUD->EndRound->PlayAnimTeamRoundScores(true);
+					break;
+				default:
+					break;
+			}
+		}
+		
+	}
+	
+}
+
 void ABlasterPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -234,9 +295,8 @@ void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 void ABlasterPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	SetHUDTime();
 	CheckTimeSync(DeltaTime);
+	SetHUDTime();
 	PollInit();
 	CheckPing(DeltaTime);
 	
@@ -553,6 +613,8 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 		BlasterHUD->Announcement->WarmupTime;
 	if (bHUDValid)
 	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("HUD VALID"));
+		if(!BlasterHUD->Announcement->IsVisible()) BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
 		if (CountdownTime < 0.f)
 		{
 			BlasterHUD->Announcement->WarmupTime->SetText(FText());
@@ -564,8 +626,27 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 
 		FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 		BlasterHUD->Announcement->WarmupTime->SetText(FText::FromString(CountdownText));
+		
 	}
 }
+
+void ABlasterPlayerController::SetHUDEndRound(float TimeLeft)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+		BlasterHUD->EndRound &&
+		BlasterHUD->EndRound->NextRoundTimeText;
+	//Establecer el tiempo restante el el Widget de End Round
+	if (bHUDValid)
+	{
+		int32 Minutes = FMath::FloorToInt(TimeLeft / 60.f);
+		int32 Seconds = TimeLeft - Minutes * 60;
+
+		FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
+		BlasterHUD->EndRound->NextRoundTimeText->SetText(FText::FromString(CountdownText));
+	}
+}
+
 
 void ABlasterPlayerController::SetHUDGrenades(int32 Grenades)
 {
@@ -595,7 +676,7 @@ void ABlasterPlayerController::SetHUDTime()
 	uint32 SecondsLeft = FMath::CeilToInt(TimeLeft);
 	if (CountdownInt != SecondsLeft)
 	{
-		if (MatchState == MatchState::WaitingToStart || MatchState == MatchState::Cooldown)
+		if (MatchState == MatchState::WaitingToStart)
 		{
 			SetHUDAnnouncementCountdown(TimeLeft);
 		}
@@ -603,10 +684,16 @@ void ABlasterPlayerController::SetHUDTime()
 		{
 			SetHUDMatchCountdown(TimeLeft);
 		}
+		if (MatchState == MatchState::Cooldown)
+		{
+			SetHUDEndRound(TimeLeft);
+		}
 	}
 
 	CountdownInt = SecondsLeft;
 }
+
+
 
 void ABlasterPlayerController::PollInit()
 {
@@ -709,16 +796,17 @@ void ABlasterPlayerController::OnRep_MatchState()
 
 void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
 {
-	UE_LOG(LogTemp, Warning, TEXT("HANDLE MATCH HAS STARTED CALLED"));
+	//UE_LOG(LogTemp, Warning, TEXT("HANDLE MATCH HAS STARTED CALLED"));
+
 	if (HasAuthority()) bShowTeamScores = bTeamsMatch;
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 	if (BlasterHUD)
 	{
 		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
-		/*if (BlasterHUD->Announcement)
+		if (BlasterHUD->Announcement)
 		{
 			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
-		}*/
+		}
 		//if (!HasAuthority()) return;
 		if (bTeamsMatch)
 		{
@@ -749,27 +837,38 @@ void ABlasterPlayerController::OnRep_ShowTeamScores()
 
 void ABlasterPlayerController::HandleNewRound()
 {
-	if (GetPawn()->IsLocallyControlled())
+	if (GetPawn() && GetPawn()->IsLocallyControlled())
 	{
 		BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
-		if (BlasterHUD && BlasterHUD->Announcement && BlasterHUD->CharacterOverlay)
+
+
+		if (BlasterHUD && BlasterHUD->Announcement && BlasterHUD->CharacterOverlay && BlasterHUD->EndRound)
 		{
+			BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden);
 			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
 			InitTeamScores();
 			BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Visible);
+			if (EndRoundWidget == nullptr) return;
+			EndRoundWidget->RemoveFromParent();
+			
 		}
+
 
 	}
 }
 
 void ABlasterPlayerController::HandleCooldown()
 {
+	/* Desactivacion de movimiento*/
 	SetGameplay(false);
-	//return;
 	EndRoundTime = GetServerTime();
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
-	if (BlasterHUD)
+
+	if (BlasterHUD && BlasterHUD->EndRoundClass)
 	{
+		if (BlasterHUD->EndRound == nullptr) BlasterHUD->AddEndRound();
+		ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+		return;
 		BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Hidden);
 		bool bHUDValid = BlasterHUD->Announcement &&
 			BlasterHUD->Announcement->AnnouncementText &&
@@ -777,11 +876,12 @@ void ABlasterPlayerController::HandleCooldown()
 
 		if (bHUDValid)
 		{		
-			/*IMPORANTE */BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
+			/*IMPORANTE */
+			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
 			FString AnnouncementText = Announcement::NewMatchStartsIn;
 			BlasterHUD->Announcement->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 
-			ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+			//ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
 			ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
 			if (BlasterGameState && BlasterPlayerState)
 			{
@@ -792,7 +892,6 @@ void ABlasterPlayerController::HandleCooldown()
 			}
 		}
 	}
-	/* Desactivacion de movimiento*/
 	
 }
 
@@ -849,9 +948,9 @@ FString ABlasterPlayerController::GetTeamsInfoText(ABlasterGameState* BlasterGam
 
 	if (RedTeamScore == 0 && BlueTeamScore == 0)
 	{
-		InfoTextString = Announcement::ThereIsNoWinner;
+		InfoTextString = Announcement::ThereIsNoWinner;//Empate
 	}
-	else if (RedTeamScore == BlueTeamScore)
+	else if (RedTeamScore == BlueTeamScore) //Empate
 	{
 		InfoTextString = FString::Printf(TEXT("%s\n"), *Announcement::TeamsTiedForTheWin);
 		InfoTextString.Append(Announcement::RedTeam);
@@ -863,16 +962,15 @@ FString ABlasterPlayerController::GetTeamsInfoText(ABlasterGameState* BlasterGam
 	{
 		InfoTextString = Announcement::RedTeamWins;
 		InfoTextString.Append(TEXT("\n"));
-		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::RedTeam,RedTeamScore));
-		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::BlueTeam,BlueTeamScore));
+		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::RedTeam, (int)BlasterGameState->RedTeamRoundScore + 1));
+		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::BlueTeam, (int)BlasterGameState->BlueTeamRoundScore));
 	}
 	else if (BlueTeamScore > RedTeamScore)
 	{
 		InfoTextString = Announcement::BlueTeamWins;
 		InfoTextString.Append(TEXT("\n"));
-		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::BlueTeam, BlueTeamScore));
-		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::RedTeam, RedTeamScore));
-		
+		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::BlueTeam, (int)BlasterGameState->BlueTeamRoundScore + 1));
+		InfoTextString.Append(FString::Printf(TEXT("%s: %d\n"), *Announcement::RedTeam, (int)BlasterGameState->RedTeamRoundScore));
 	}
 
 	return InfoTextString;

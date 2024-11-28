@@ -9,6 +9,38 @@
 #include "Blaster/Character/BlasterCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
+void ATeamsGameMode::Debug(bool Active,float DeltaTime)
+{
+	if (!Active) return;
+	if (MatchState == MatchState::InProgress)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, TEXT("MatchState : InProgress"));
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, TEXT("MatchState : Cooldown"));
+
+	}
+	else if (MatchState == MatchState::NewRound)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, TEXT("MatchState : NewRound"));
+
+	}
+	return;
+	if (GEngine)
+	{
+		if (GetBlasterGameState())
+		{
+			FString Text1 = FString::Printf(TEXT("R Team Round Score: %d"), (int32)GetBlasterGameState()->RedTeamRoundScore);
+			GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Text1);
+			FString Text2 = FString::Printf(TEXT("B Team Round Score: %d"), (int32)GetBlasterGameState()->BlueTeamRoundScore);
+			GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Text1);
+		}
+
+	}
+
+}
+
 ATeamsGameMode::ATeamsGameMode()
 {
 	bTeamsMatch = true;
@@ -17,13 +49,14 @@ ATeamsGameMode::ATeamsGameMode()
 void ATeamsGameMode::Tick(float DeltaTime)
 {
 	AGameMode::Tick(DeltaTime);
-
+	Debug(true, DeltaTime);
 	if (MatchState == MatchState::WaitingToStart)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Estoy en Waiting To Start"));
 		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (/* CountdownTime <= 0.f  &&*/ false)
+		if (CountdownTime <= 0.f)
 		{
+			RoundStartTime = GetWorld()->GetTimeSeconds();
 			StartMatch();
 		}
 	}
@@ -33,35 +66,53 @@ void ATeamsGameMode::Tick(float DeltaTime)
 		if (CountdownTime <= 0.f)
 		{
 			EndMatchTime = GetWorld()->GetTimeSeconds();
+			bRoundHasEnded = true;
+			if (GetBlasterGameState())
+			{
+				if (GetBlasterGameState()->RedTeamScore == GetBlasterGameState()->BlueTeamScore)
+				{
+					GetBlasterGameState()->ShowEndRoundResult(EEndRoundType::ERT_Draw);
+				}
+				else if (GetBlasterGameState()->RedTeamScore > GetBlasterGameState()->BlueTeamScore)
+				{
+					GetBlasterGameState()->ShowEndRoundResult(EEndRoundType::ERT_RedTeam);
+				}
+				else
+				{
+					GetBlasterGameState()->ShowEndRoundResult(EEndRoundType::ERT_BlueTeam);
+				}
+			}
 			SetMatchState(MatchState::Cooldown);
 		}
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
+		if (GetBlasterGameState() == nullptr) return;
+		if (bRoundHasEnded) //Hacer una vez al termino de una ronda
+		{
+			bRoundHasEnded = false;
+		}
+		//Timer para dar paso al siguiente evento
 		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
 		if (CountdownTime <= 0.f)
 		{
 			EndMatchTime = GetWorld()->GetTimeSeconds();
-			bNewRound = true;
-			SetMatchState(MatchState::NewRound);
-
-			return;
-			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
-			if(BGameState)
+			if(GetBlasterGameState())
 			{
-				if (BGameState->RedTeamRoundScore >= 3)
+				if (GetBlasterGameState()->RedTeamRoundScore >= 3.f)
 				{
 					EndGame(true, true);
 					SetMatchState(MatchState::EndGame);
 
 				}
-				else if (BGameState->BlueTeamRoundScore >= 3)
+				else if (GetBlasterGameState()->BlueTeamRoundScore >= 3.f)
 				{
 					EndGame(true, false);
 					SetMatchState(MatchState::EndGame);
 				}
 				else
 				{
+					bNewRound = true;
 					SetMatchState(MatchState::NewRound);
 				}
 			}
@@ -69,7 +120,7 @@ void ATeamsGameMode::Tick(float DeltaTime)
 	}
 	else if (MatchState == MatchState::NewRound)
 	{
-		if (bNewRound)
+		if (bNewRound) //Hacer una vez al inicio de una nueva ronda
 		{
 			bNewRound = false;
 			//Itera por todos los jugadores y les avisa del Cambio del game State
@@ -79,44 +130,30 @@ void ATeamsGameMode::Tick(float DeltaTime)
 				if (BlasterPlayerController)
 				{
 					ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(BlasterPlayerController->GetPawn());
-					BlasterCharacter->Elim(false);
+					if (BlasterCharacter)
+					{
+						BlasterCharacter->Elim(false);
+					}
 				}
-
 			}
 			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
 			if (BGameState)
 			{
-				if (BGameState->RedTeamScore == BGameState->BlueTeamScore)
-				{
-					//mensaje de empate de ronda
-				}
-				else if (BGameState->RedTeamScore > BGameState->BlueTeamScore)
-				{
-					BGameState->RedTeamRoundScores();
-				}
-				else 
-				{
-					BGameState->BlueTeamRoundScores();
-				}
-				//Mostrar MEnsaje en pantalla
+				BGameState->ResetTeamScores();
 			}
 		}
 		//
 		CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
 		if (CountdownTime <= 0.f)
 		{
-			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
-			if (BGameState)
-			{
-				BGameState->ResetTeamScores();
-			}
+			
 			RoundStartTime = GetWorld()->GetTimeSeconds();
 			SetMatchState(MatchState::WaitingToStart);
 		}
 	}
 	else if (MatchState == MatchState::EndGame)
 	{
-		//El juego se termina, se muestra el ganador y se sacan a todos los gudaroes
+		//El juego se termina, se muestra el ganador y se sacan a todos los jugadores
 	}
 	
 }

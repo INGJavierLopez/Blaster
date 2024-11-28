@@ -122,13 +122,17 @@ void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResu
 
 		return;
 	}
-	/*
+
+	//Añadir Sesiones Fantasma de Prueba
+	///*
 	FSessionInfo SessionInfot;
 	SessionInfot.SessionMatchType = TEXT("Hola");
 	SessionInfot.SessionOwnersName = TEXT("Hola");
 	SessionInfot.Players = TEXT("Hola");
 	SessionInfot.Ping = TEXT("Hola");
-	AddServerItem(SessionInfot);*/
+	AddServerItem(SessionInfot);
+
+	//*/
 	
 	if(SessionResults.Num() == 0)
 	{
@@ -148,18 +152,9 @@ void UMenu::OnFindSessions(const TArray<FOnlineSessionSearchResult>& SessionResu
 	}
 	else
 	{
-		/*
 		ServerBrowser->ServerList_SB->ClearChildren();
-		ServerBrowser->ServerList_SB->InsertChildAt()ñ
-		FSessionInfo SessionInfot;
-		SessionInfot.SessionMatchType = TEXT("Test MT");
-		SessionInfot.SessionOwnersName = TEXT("Test OW");
-		SessionInfot.Players = TEXT("Test 1/1");
-		SessionInfot.Ping = TEXT("Test 11ms");
-		AddServerItem(SessionInfot);
-		*/
 	}
-	
+	//LLenar todos los Items en la tabla
 	for (auto Result : SessionResults)
 	{
 		FString SettingsValue;

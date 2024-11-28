@@ -5,10 +5,12 @@
 #include "GameFramework/PlayerController.h"
 #include "CharacterOverlay.h"
 #include "Announcement.h"
+#include "EndRound.h"
 #include "ElimAnnouncement.h"
 #include "Components/HorizontalBox.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/CanvasPanelSlot.h"
+#include "LobbyHUD.h"
 
 void ABlasterHUD::DrawHUD()
 {
@@ -50,6 +52,10 @@ void ABlasterHUD::DrawHUD()
 	}
 }
 
+
+
+
+
 void ABlasterHUD::BeginPlay()
 {
 	Super::BeginPlay();
@@ -74,6 +80,24 @@ void ABlasterHUD::AddAnnouncement()
 		Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
 		Announcement->AddToViewport();
 		Announcement->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+void ABlasterHUD::AddLobbyHUD()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && LobbyHUDClass)
+	{
+		LobbyHUD = CreateWidget<ULobbyHUD>(PlayerController, LobbyHUDClass);
+		LobbyHUD->AddToViewport();
+	}
+}
+void ABlasterHUD::AddEndRound()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && EndRoundClass)
+	{
+		EndRound = CreateWidget<UEndRound>(PlayerController, EndRoundClass);
+		EndRound->AddToViewport();
 	}
 }
 

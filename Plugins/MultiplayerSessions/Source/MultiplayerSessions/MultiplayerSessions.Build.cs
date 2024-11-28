@@ -11,7 +11,7 @@ public class MultiplayerSessions : ModuleRules
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
-			}
+            }
 			);
 				
 		
@@ -43,6 +43,7 @@ public class MultiplayerSessions : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+                "Blaster"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

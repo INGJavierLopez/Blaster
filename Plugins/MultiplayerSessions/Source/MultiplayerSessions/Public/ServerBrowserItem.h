@@ -33,6 +33,9 @@ public:
 	class UButton* JoinButton;
 
 	class FOnlineSessionSearchResult Result;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowLoadScreen();
 protected:
 
 	virtual bool Initialize() override;

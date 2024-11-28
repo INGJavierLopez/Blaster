@@ -14,6 +14,7 @@ class BLASTER_API ATeamsGameMode : public ABlasterGameMode
 {
 	GENERATED_BODY()
 public:
+	void Debug(bool Active, float DeltaTime);
 	ATeamsGameMode();
 	virtual void Tick(float DeltaTime) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;

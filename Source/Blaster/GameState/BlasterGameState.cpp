@@ -38,6 +38,8 @@ void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterGameState, RedTeamRoundScore);
 	DOREPLIFETIME(ABlasterGameState, BlueTeamRoundScore);
 	DOREPLIFETIME(ABlasterGameState, bGhostMode);
+	DOREPLIFETIME(ABlasterGameState, CurrentRound); 
+	DOREPLIFETIME(ABlasterGameState, EndRoundType);
 }
 
 void ABlasterGameState::UpdateTopScore(ABlasterPlayerState* ScoringPlayer)
@@ -75,6 +77,62 @@ void ABlasterGameState::EndRound()
 /// 
 ///  TEMAS ROUND SCORE
 /// 
+
+void ABlasterGameState::ShowEndRoundResult(EEndRoundType NewEndRoundType)
+{
+	CurrentRound++;
+	EndRoundType = NewEndRoundType;
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer == nullptr) return;
+	if (!HasAuthority()) return;
+	switch (EndRoundType)
+	{
+	case EEndRoundType::ERT_RedTeam:
+		RedTeamRoundScores();
+		BPlayer->HandleRoundScore(RedTeamRoundScore, BlueTeamRoundScore, CurrentRound, EEndRoundType::ERT_RedTeam);
+		break;
+	case EEndRoundType::ERT_BlueTeam:
+		BlueTeamRoundScores();
+		BPlayer->HandleRoundScore(RedTeamRoundScore, BlueTeamRoundScore, CurrentRound, EEndRoundType::ERT_BlueTeam);
+		break;
+	case EEndRoundType::ERT_Draw:
+		BPlayer->HandleRoundScore(RedTeamRoundScore, BlueTeamRoundScore, CurrentRound, EEndRoundType::ERT_Draw);
+		break;
+	case EEndRoundType::ERT_MAX:
+		break;
+	default:
+		break;
+	}
+}
+void ABlasterGameState::OnRep_EndRoundType()
+{
+	OnRep_CurrentRound();
+}
+void ABlasterGameState::OnRep_CurrentRound()
+{
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer == nullptr) return;
+	switch (EndRoundType)
+	{
+	case EEndRoundType::ERT_RedTeam:
+		OnRep_RedTeamRoundScore();
+		BPlayer->HandleRoundScore(RedTeamRoundScore, BlueTeamRoundScore, CurrentRound, EEndRoundType::ERT_RedTeam);
+		break;
+	case EEndRoundType::ERT_BlueTeam:
+		OnRep_BlueTeamRoundScore();
+		BPlayer->HandleRoundScore(RedTeamRoundScore, BlueTeamRoundScore, CurrentRound, EEndRoundType::ERT_BlueTeam);
+
+		break;
+	case EEndRoundType::ERT_Draw:
+		BPlayer->HandleRoundScore(RedTeamRoundScore, BlueTeamRoundScore, CurrentRound, EEndRoundType::ERT_Draw);
+		break;
+	case EEndRoundType::ERT_MAX:
+		break;
+	default:
+		break;
+	}
+}
+
 void ABlasterGameState::RedTeamRoundScores()
 {
 	++RedTeamRoundScore;
@@ -84,25 +142,7 @@ void ABlasterGameState::RedTeamRoundScores()
 	{
 		BPlayer->SetHUDRedTeamRounds(RedTeamRoundScore);
 	}
-	if (RedTeamRoundScore >= MaxRounds)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
-	}
-}
 
-void ABlasterGameState::BlueTeamRoundScores()
-{
-	++BlueTeamRoundScore;
-	/* Local*/
-	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
-	if (BPlayer)
-	{
-		BPlayer->SetHUDBlueTeamRounds(BlueTeamRoundScore);
-	}
-	if (BlueTeamRoundScore >= MaxRounds)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
-	}
 }
 
 void ABlasterGameState::OnRep_RedTeamRoundScore()
@@ -112,22 +152,48 @@ void ABlasterGameState::OnRep_RedTeamRoundScore()
 	{
 		BPlayer->SetHUDRedTeamRounds(RedTeamRoundScore);
 	}
-	if (RedTeamRoundScore >= MaxRounds)
+}
+
+
+
+//Esta funcion actualiza el marcador global
+void ABlasterGameState::BlueTeamRoundScores()
+{
+	++BlueTeamRoundScore;
+	//UpdateRound();
+	/* Local*/
+	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (BPlayer)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
+		BPlayer->SetHUDBlueTeamRounds(BlueTeamRoundScore);
 	}
 }
+
+
 void ABlasterGameState::OnRep_BlueTeamRoundScore()
 {
 	ABlasterPlayerController* BPlayer = Cast<ABlasterPlayerController>(GetWorld()->GetFirstPlayerController());
 	if (BPlayer)
 	{
 		BPlayer->SetHUDBlueTeamRounds(BlueTeamRoundScore);
+
 	}
-	if (BlueTeamRoundScore >= MaxRounds)
+}
+
+
+void ABlasterGameState::ServerRequestRoundScores_Implementation()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("SERVER REQUEST EJECUTADO"));
+
+	ClientReportRoundScores(RedTeamRoundScore, BlueTeamRoundScore);
+}
+void ABlasterGameState::ClientReportRoundScores_Implementation(float Red, float Blue)
+{
+	APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
+	if (APlayerController* BlasterPC = Cast<APlayerController>(LocalPC))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Se acabo el Juego"));
 	}
+
 }
 /// 
 /// TEAM SCORES
@@ -175,6 +241,10 @@ void ABlasterGameState::OnRep_BlueTeamScore()
 	}
 }
 
+
+
+
+
 void ABlasterGameState::ResetTeamScores()
 {
 	BlueTeamScore = 0;
@@ -186,6 +256,10 @@ void ABlasterGameState::ResetTeamScores()
 		BPlayer->SetHUDRedTeamScore(RedTeamScore);
 	}
 }
+
+
+
+
 
 void ABlasterGameState::ServerSetGhostMode_Implementation(bool bNewGhostMode)
 {

@@ -74,6 +74,11 @@ void ABlasterGameMode::OnMatchStateSet()
 	}
 }
 
+ABlasterGameState* ABlasterGameMode::GetBlasterGameState()
+{
+	return GetGameState<ABlasterGameState>();
+}
+
 float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage)
 {
 	return BaseDamage;
@@ -166,6 +171,7 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 		ElimmedCharacter->Reset();
 		ElimmedCharacter->Destroy();
 	}
+	if (MatchState == MatchState::Cooldown) return;
 	if (ElimmedController)
 	{
 		TArray<AActor*> PlayerStarts;

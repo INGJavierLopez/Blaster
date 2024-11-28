@@ -6,8 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "BlasterPlayerController.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
+enum class EEndRoundType : uint8;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
 /**
  * 
  */
@@ -56,10 +57,13 @@ public:
 
 
 	void SetGameplay(bool Enable);
+
+	void HandleRoundScore(float Red, float Blue,int32, EEndRoundType EndMatchType);
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
 	void SetHUDTime();
+	void SetHUDEndRound(float TimeLeft);
 	void PollInit();
 	/**
 	*  Sync time between client and server
@@ -109,7 +113,7 @@ protected:
 private:
 	UPROPERTY()
 	class ABlasterHUD* BlasterHUD;
-
+	class UEndRound* EndRoundWidget;
 	/**
 	*  Return To Main Menu
 	*/

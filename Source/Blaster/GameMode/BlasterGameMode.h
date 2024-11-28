@@ -61,6 +61,7 @@ public:
 	float RoundStartTime = 0.f;
 
 	bool bNewRound = false;
+	bool bRoundHasEnded = false;
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;
@@ -70,5 +71,5 @@ private:
 
 public:
 	FORCEINLINE float  GetCountdownTime() { return CountdownTime; }
-	FORCEINLINE ABlasterGameState* GetBlasterGameState() { return BlasterGameState; }
+	ABlasterGameState* GetBlasterGameState();
 };

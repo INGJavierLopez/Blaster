@@ -504,10 +504,16 @@ void ABlasterCharacter::SetGhostMode()
 			VisibilityTimerHandle,
 			this,
 			&ABlasterCharacter::CalculateVisibility,
-			0.2f,  // Interval in seconds
+			0.05f,  // Interval in seconds
 			true    // Loop the timer
 		);
 	}	
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->MaxWalkSpeed = GetCharacterMovement()->MaxWalkSpeed * 2.5f;
+		GetCharacterMovement()->MaxWalkSpeedCrouched = GetCharacterMovement()->MaxWalkSpeedCrouched * 2.5f;
+	}
+
 }
 
 
@@ -733,7 +739,6 @@ void ABlasterCharacter::PlayHitReactMontage()
 void ABlasterCharacter::GrenadeButtonPressed()
 {
 	
-
 	if (Combat)
 	{
 		if (Combat->bHoldingTheFlag) return;
