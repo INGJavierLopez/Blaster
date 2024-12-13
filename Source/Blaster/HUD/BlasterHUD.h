@@ -67,6 +67,14 @@ public:
 	class UEndRound* EndRound;
 	void AddEndRound();
 
+	//EndGame
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	TSubclassOf<class UUserWidget> EndGameClass;
+
+	//UPROPERTY()
+	class UEndGame* EndGame;
+	void AddEndGame();
+
 protected:
 	virtual void BeginPlay() override;
 private:

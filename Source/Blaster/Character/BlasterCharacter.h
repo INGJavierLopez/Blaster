@@ -384,7 +384,7 @@ private:
 	//Local
 	void CalculateVisibility();
 
-	void HandleChangeVisibility();
+	void HandleChangeVisibility(float NewVisibility);
 
 	UPROPERTY(ReplicatedUsing = OnRep_Visibility, VisibleAnywhere, Category = "Player ghost",BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	float Visibility = 1.f;
@@ -394,6 +394,8 @@ private:
 
 	UFUNCTION(Server, Reliable)
 	void ServerChangeVisibility(float NewVisibility);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastChangeVisibility(float NewVisibility);
 	UPROPERTY(Replicated,BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bCanStab = true;
 
@@ -438,4 +440,6 @@ public:
 	ETeam GetTeam();
 	void SetHoldingTheFlag(bool bHolding);
 	AWeapon* GetFlag();
+
+	FORCEINLINE USpringArmComponent* GetSpringArm() { return CameraBoom; }
 };	

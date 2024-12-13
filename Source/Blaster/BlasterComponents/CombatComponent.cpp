@@ -17,6 +17,8 @@
 #include "Blaster/Character/BlasterAnimInstance.h"
 #include "Blaster/Weapon/Projectile.h"
 #include "Blaster/Weapon/Shotgun.h"
+#include "GameFramework/SpringArmComponent.h"
+
 
 UCombatComponent::UCombatComponent()
 {
@@ -118,6 +120,40 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 
 }
 
+void UCombatComponent::OnRep_CombatState()
+{
+	switch (CombatState)
+	{
+	case ECombatState::ECS_Reloading:
+		if (Character && !Character->IsLocallyControlled()) HandleReload();
+		break;
+	case ECombatState::ECS_Unoccupied:
+		bLocallyReloading = false;
+		if (bFireButtonPressed)
+		{
+			Fire();
+		}
+		break;
+	case ECombatState::ECS_Stabbing:
+		//Mientras se stabea se deberia ver al jugador
+		break;
+	case ECombatState::ECS_ThrowingGrenade:
+		if (Character && !Character->IsLocallyControlled())
+		{
+			Character->PlayThrowGrenadeMontage();
+			AttachActorToLeftHand(EquippedWeapon);
+			ShowAttachedGrenade(true);
+		}
+		break;
+	case ECombatState::ECS_SwappingWeapons:
+		if (Character && !Character->IsLocallyControlled())
+		{
+			Character->PlaySwapMontage();
+		}
+		break;
+	}
+}
+
 void UCombatComponent::FireButtonPressed(bool bPressed)
 {
 	bFireButtonPressed = bPressed;
@@ -131,26 +167,27 @@ void UCombatComponent::Stab()
 {
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 	CombatState = ECombatState::ECS_Stabbing;
-	if (Character)
-	{
-		Character->PlayStabMontage();
-	}
 	if (Character && !Character->HasAuthority())
 	{
-		ServerStab();
+		Character->PlayStabMontage(); // Ejecutado en el cliente local que inicia el Stab
 	}
+	ServerStab(); // Notificar al servidor
+
 }
 
 void UCombatComponent::ServerStab_Implementation()
 {
-	CombatState = ECombatState::ECS_Stabbing;
-	if (Character)
-	{
-		Character->PlayStabMontage();
-	}
+	MulticastStab();
 }
 
-	void UCombatComponent::StabTrace_Implementation()
+void UCombatComponent::MulticastStab_Implementation()
+{
+	CombatState = ECombatState::ECS_Stabbing;
+	if (Character && Character->IsLocallyViewed() && !Character->HasAuthority()) return;
+	Character->PlayStabMontage();
+}
+
+void UCombatComponent::StabTrace_Implementation()
 {
 	// Obtener el World
 	UWorld* World = GetWorld();
@@ -245,8 +282,8 @@ void UCombatComponent::FireProjectileWeapon()
 	if (EquippedWeapon && Character)
 	{
 		HitTarget = EquippedWeapon->bUseScatter ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
-		if(!Character->HasAuthority()) LocalFire(HitTarget);
-		ServerFire(HitTarget,EquippedWeapon->FireDelay);
+		if(!Character->HasAuthority()) LocalFire(HitTarget); //Ejecutado en Cliente Controlado Localmente
+		ServerFire(HitTarget,EquippedWeapon->FireDelay); //Notifica al Servidor
 	}
 }
 
@@ -299,7 +336,7 @@ void UCombatComponent::FireTimerFinished()
 
 void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
 {
-	MulticastFire(TraceHitTarget);
+	MulticastFire(TraceHitTarget); //Servidor Envia a Todos
 }
 
 bool UCombatComponent::ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, float FireDelay)
@@ -312,10 +349,21 @@ bool UCombatComponent::ServerFire_Validate(const FVector_NetQuantize& TraceHitTa
 	return true;
 }
 
+//Los clientes ejecutan el fire
 void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
 {
-	if (Character && Character->IsLocallyViewed() && !Character->HasAuthority()) return;
+	if (Character && Character->IsLocallyViewed() && !Character->HasAuthority()) return; //Ignora a cliente Localmente COntrolado
 	LocalFire(TraceHitTarget);
+}
+
+void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
+{
+	if (EquippedWeapon == nullptr) return;
+	if (Character && CombatState == ECombatState::ECS_Unoccupied)
+	{
+		Character->PlayFireMontage(bAiming);
+		EquippedWeapon->Fire(TraceHitTarget);
+	}
 }
 
 void UCombatComponent::ServerShotgunFire_Implementation(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay)
@@ -337,16 +385,6 @@ void UCombatComponent::MulticastShotgunFire_Implementation(const TArray<FVector_
 {
 	if (Character && Character->IsLocallyViewed() && !Character->HasAuthority()) return;
 	ShotgunLocalFire(TraceHitTargets);
-}
-
-void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
-{
-	if (EquippedWeapon == nullptr) return;
-	if (Character && CombatState == ECombatState::ECS_Unoccupied)
-	{
-		Character->PlayFireMontage(bAiming);
-		EquippedWeapon->Fire(TraceHitTarget);
-	}
 }
 
 void UCombatComponent::ShotgunLocalFire(const TArray<FVector_NetQuantize>& TraceHitTargets)
@@ -438,7 +476,6 @@ void UCombatComponent::FInishSwapAttachWeapons()
 	AttachActorToBackpack(SecondaryWeapon);
 	
 }
-
 
 void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip)
 {
@@ -548,13 +585,11 @@ void UCombatComponent::UpdateCarriedAmmo()
 	}
 }
 
-
-
 void UCombatComponent::Reload()
 {
 	if (CarriedAmmo > 0 && CombatState == ECombatState::ECS_Unoccupied && EquippedWeapon && !EquippedWeapon->IsFull() && !bLocallyReloading)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde CombatComponent"));
+		//UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde CombatComponent"));
 		ServerReload();
 		HandleReload();
 		bLocallyReloading = true;
@@ -564,7 +599,7 @@ void UCombatComponent::Reload()
 void UCombatComponent::ServerReload_Implementation()
 {
 	if (Character == nullptr || EquippedWeapon == nullptr) return;
-	UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde ServerReload"));
+	//UE_LOG(LogTemp, Warning, TEXT("Llamado Reload desde ServerReload"));
 	CombatState = ECombatState::ECS_Reloading;
 	if(!Character->IsLocallyControlled()) HandleReload(); //ESTO FUE LO QUE CAMBIE
 }
@@ -642,42 +677,7 @@ void UCombatComponent::JumpToShotgunEnd()
 	}
 }
 
-void UCombatComponent::OnRep_CombatState()
-{
-	switch (CombatState)
-	{
-	case ECombatState::ECS_Reloading:
-		if(Character && !Character->IsLocallyControlled()) HandleReload();
-		break;
-	case ECombatState::ECS_Unoccupied:
-		bLocallyReloading = false;
-		if (bFireButtonPressed)
-		{
-			Fire();
-		}
-		break;
-	case ECombatState::ECS_Stabbing:
-		if (Character && !Character->IsLocallyControlled())
-		{
-			Character->PlayStabMontage();
-		}
-		break;
-	case ECombatState::ECS_ThrowingGrenade:
-		if (Character && !Character->IsLocallyControlled())
-		{
-			Character->PlayThrowGrenadeMontage();
-			AttachActorToLeftHand(EquippedWeapon);
-			ShowAttachedGrenade(true);
-		}
-		break;
-	case ECombatState::ECS_SwappingWeapons:
-		if (Character && !Character->IsLocallyControlled())
-		{
-			Character->PlaySwapMontage();
-		}
-		break;
-	}
-}
+
 
 
 
@@ -891,7 +891,12 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 		{
 			HitTarget = (End - Start) * 500;
 		}
-		//DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Black, false, 1.f);
+
+		if (Character)
+		{
+			//DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Green, false,0.1);
+
+		}
 	}
 }
 
@@ -966,18 +971,40 @@ void UCombatComponent::SetHUDCrosshairs(float DeltaTime)
 void UCombatComponent::InterpFOV(float DeltaTime)
 {
 	if (EquippedWeapon == nullptr) return;
-
-	if (bAiming)
+	if (Character == nullptr) return;
+	if (Character->bIsCrouched)
 	{
-		CurrentFOV = FMath::FInterpTo(CurrentFOV, EquippedWeapon->GetZoomedFOV(), DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+		if (bAiming)
+		{
+			CurrentFOV = FMath::FInterpTo(CurrentFOV, EquippedWeapon->GetZoomedFOV(), DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+			CurrentSocketOffset = FMath::VInterpTo(CurrentSocketOffset, CrouchAimSocketOffset, DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+		}
+		else
+		{
+			CurrentFOV = FMath::FInterpTo(CurrentFOV, DefaultFOV, DeltaTime, ZoomInterpSpeed);
+			CurrentSocketOffset = FMath::VInterpTo(CurrentSocketOffset, CrouchSocketOffset, DeltaTime, ZoomInterpSpeed);
+
+		}
 	}
 	else
 	{
-		CurrentFOV = FMath::FInterpTo(CurrentFOV, DefaultFOV, DeltaTime, ZoomInterpSpeed);
+		if (bAiming)
+		{
+			CurrentFOV = FMath::FInterpTo(CurrentFOV, EquippedWeapon->GetZoomedFOV(), DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+			CurrentSocketOffset = FMath::VInterpTo(CurrentSocketOffset, AimSocketOffset, DeltaTime, EquippedWeapon->GetZoomInterpSpeed());
+		}
+		else
+		{
+			CurrentFOV = FMath::FInterpTo(CurrentFOV, DefaultFOV, DeltaTime, ZoomInterpSpeed);
+			CurrentSocketOffset = FMath::VInterpTo(CurrentSocketOffset, DefaultSocketOffset, DeltaTime, ZoomInterpSpeed);
+
+		}
 	}
-	if (Character && Character->GetFollowCamera())
+	
+	if (Character->GetFollowCamera())
 	{
 		Character->GetFollowCamera()->SetFieldOfView(CurrentFOV);
+		Character->GetSpringArm()->SocketOffset = CurrentSocketOffset;
 	}
 }
 

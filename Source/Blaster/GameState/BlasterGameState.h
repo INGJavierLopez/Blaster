@@ -36,9 +36,12 @@ public:
 	void RedTeamScores();
 	void BlueTeamScores();
 	void ResetTeamScores();
-	void ShowEndRoundResult(EEndRoundType EndRoundType);
+	void RoundEndResult(EEndRoundType EndRoundType);
+	void HandleRoundEndResult();
 	void RedTeamRoundScores();
+	void HandleRedTeamRoundScores();
 	void BlueTeamRoundScores();
+	void HandleBlueTeamRoundScores();
 	void EndRound();
 
 

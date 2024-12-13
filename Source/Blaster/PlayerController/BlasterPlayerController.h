@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Blaster/BlasterTypes/Team.h"
 #include "BlasterPlayerController.generated.h"
 
 enum class EEndRoundType : uint8;
@@ -17,7 +18,8 @@ class BLASTER_API ABlasterPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 public:
-	
+	UFUNCTION(BlueprintImplementableEvent)
+	void BlueprintSignal();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void SetHUDHealth(float Health, float MaxHealth);
 	void SetHUDShield(float Shield, float MaxShield);
@@ -41,7 +43,7 @@ public:
 	void HandleNewRound();
 	void HandleCooldown();
 	void HandleEndGame();
-
+	void ShowGameWinner(ETeam WinnerTeam);
 	float SingleTripTime = 0;
 
 	FHighPingDelegate HighPingDelegate;
@@ -185,4 +187,7 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float HighPingThreshold = 50.f;
+	
+public:
+	FORCEINLINE bool IsMatchInProgress();
 };

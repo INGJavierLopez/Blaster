@@ -5,6 +5,7 @@
 #include "Blaster/HUD/BlasterHUD.h"
 #include "Blaster/HUD/CharacterOverlay.h"
 #include "Blaster/HUD/EndRound.h"
+#include "Blaster/HUD/EndGame.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Blaster/Character/BlasterCharacter.h"
@@ -284,6 +285,7 @@ void ABlasterPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Quit",IE_Pressed,this,&ABlasterPlayerController::ShowReturnToMainMenu);
 }
 
+
 void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -476,7 +478,7 @@ void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 	{
 		const float HealthPercent = Health / MaxHealth;
 		BlasterHUD->CharacterOverlay->HealthBar->SetPercent(HealthPercent);
-		FString HealthText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Health), FMath::CeilToInt(MaxHealth));
+		FString HealthText = FString::Printf(TEXT("%d"), FMath::CeilToInt(Health));
 		BlasterHUD->CharacterOverlay->HealthText->SetText(FText::FromString(HealthText));
 	}
 	else
@@ -498,7 +500,7 @@ void ABlasterPlayerController::SetHUDShield(float Shield, float MaxShield)
 	{
 		const float ShieldPercent = Shield / MaxShield;
 		BlasterHUD->CharacterOverlay->ShieldBar->SetPercent(ShieldPercent);
-		FString ShieldText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Shield), FMath::CeilToInt(MaxShield));
+		FString ShieldText = FString::Printf(TEXT("%d"), FMath::CeilToInt(Shield));
 		BlasterHUD->CharacterOverlay->ShieldText->SetText(FText::FromString(ShieldText));
 	}
 	else
@@ -758,13 +760,13 @@ void ABlasterPlayerController::OnMatchStateSet(FName State,bool bTeamsMatch)
 	{
 		HandleMatchHasStarted(bTeamsMatch);
 	}
-	else if (MatchState == MatchState::NewRound)
-	{
-		HandleNewRound();
-	}
 	else if (MatchState == MatchState::Cooldown)
 	{
 		HandleCooldown();
+	}
+	else if (MatchState == MatchState::NewRound)
+	{
+		HandleNewRound();
 	}
 	else if (MatchState == MatchState::EndGame)
 	{
@@ -792,6 +794,13 @@ void ABlasterPlayerController::OnRep_MatchState()
 	}
 }
 
+bool ABlasterPlayerController::IsMatchInProgress()
+{
+	if (MatchState == MatchState::InProgress) return true;
+
+	return false;
+}
+
 
 
 void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
@@ -803,9 +812,14 @@ void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
 	if (BlasterHUD)
 	{
 		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
+		if(!BlasterHUD->CharacterOverlay->IsVisible()) BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Visible);
 		if (BlasterHUD->Announcement)
 		{
 			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
+		}
+		if (BlasterHUD->EndRound)
+		{
+			BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden);
 		}
 		//if (!HasAuthority()) return;
 		if (bTeamsMatch)
@@ -837,24 +851,17 @@ void ABlasterPlayerController::OnRep_ShowTeamScores()
 
 void ABlasterPlayerController::HandleNewRound()
 {
-	if (GetPawn() && GetPawn()->IsLocallyControlled())
-	{
-		BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
-
-
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD && BlasterHUD->Announcement && BlasterHUD->CharacterOverlay && BlasterHUD->EndRound)
 		if (BlasterHUD && BlasterHUD->Announcement && BlasterHUD->CharacterOverlay && BlasterHUD->EndRound)
-		{
-			BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden);
-			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
-			InitTeamScores();
-			BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Visible);
-			if (EndRoundWidget == nullptr) return;
-			EndRoundWidget->RemoveFromParent();
-			
-		}
-
-
+	{
+		BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden); //ocultar End Round
+		BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden); //Ocultar Announcement
+		BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Hidden); //Ocultar Overlay
+		//Resetear los Scores
+		InitTeamScores();	
 	}
+	
 }
 
 void ABlasterPlayerController::HandleCooldown()
@@ -862,6 +869,8 @@ void ABlasterPlayerController::HandleCooldown()
 	/* Desactivacion de movimiento*/
 	SetGameplay(false);
 	EndRoundTime = GetServerTime();
+	return;
+
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 
 	if (BlasterHUD && BlasterHUD->EndRoundClass)
@@ -897,8 +906,23 @@ void ABlasterPlayerController::HandleCooldown()
 
 void ABlasterPlayerController::HandleEndGame()
 {
-
 }
+
+void ABlasterPlayerController::ShowGameWinner(ETeam WinnerTeam)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD)
+	{
+		if (BlasterHUD->EndGame == nullptr) BlasterHUD->AddEndGame();
+		if (BlasterHUD->EndGame)
+		{
+			BlasterHUD->EndGame->ShowEndGameResult(WinnerTeam);
+		}
+		DisableInput(this);
+
+	}
+}
+
 
 FString ABlasterPlayerController::GetInfoText(const TArray<class ABlasterPlayerState*>& Players)
 {

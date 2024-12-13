@@ -2,10 +2,12 @@
 
 
 #include "BlasterHUD.h"
+#include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "GameFramework/PlayerController.h"
 #include "CharacterOverlay.h"
 #include "Announcement.h"
 #include "EndRound.h"
+#include "EndGame.h"
 #include "ElimAnnouncement.h"
 #include "Components/HorizontalBox.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
@@ -15,7 +17,11 @@
 void ABlasterHUD::DrawHUD()
 {
 	Super::DrawHUD();
-
+	ABlasterPlayerController* PlayerController = Cast<ABlasterPlayerController>(GetOwningPlayerController());
+	if (PlayerController)
+	{
+		if (!PlayerController->IsMatchInProgress()) return;
+	}
 	FVector2D ViewportSize;
 	if (GEngine)
 	{
@@ -51,6 +57,8 @@ void ABlasterHUD::DrawHUD()
 		}
 	}
 }
+
+
 
 
 
@@ -98,6 +106,18 @@ void ABlasterHUD::AddEndRound()
 	{
 		EndRound = CreateWidget<UEndRound>(PlayerController, EndRoundClass);
 		EndRound->AddToViewport();
+	}
+}
+
+void ABlasterHUD::AddEndGame()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && EndGameClass)
+	{
+		EndGame = CreateWidget<UEndGame>(PlayerController, EndGameClass);
+		EndGame->AddToViewport();
+		EndGame->SetVisibility(ESlateVisibility::Visible);
+
 	}
 }
 

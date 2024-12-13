@@ -86,7 +86,7 @@ float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Vict
 /*
 * Color false = blue, true = red
 */
-void ABlasterGameMode::EndGame(bool Teams, bool Color)
+void ABlasterGameMode::EndGame(bool Teams, ETeam TeamWinner)
 {
 }
 
@@ -199,6 +199,41 @@ void ABlasterGameMode::ResetCharacters()
 				int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 				RestartPlayerAtPlayerStart(BPController, PlayerStarts[Selection]);
 				BPController->SetGameplay(true);
+			}
+		}
+	}
+}
+
+void ABlasterGameMode::NewRound()
+{
+	TArray<AActor*> PlayerStarts;
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
+	if (PlayerStarts.IsEmpty()) return;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayerController)
+		{
+			int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
+			RestartPlayerAtPlayerStart(BlasterPlayerController, PlayerStarts[Selection]);
+			BlasterPlayerController->SetGameplay(true);
+		}
+
+	}
+}
+
+void ABlasterGameMode::DestroyCurrentCharacters()
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayerController)
+		{
+			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(BlasterPlayerController->GetPawn());
+			if (BlasterCharacter)
+			{
+				BlasterCharacter->Reset();
+				BlasterCharacter->Destroy();
 			}
 		}
 	}

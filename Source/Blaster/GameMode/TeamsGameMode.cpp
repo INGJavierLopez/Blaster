@@ -3,7 +3,6 @@
 
 #include "TeamsGameMode.h"
 #include "Blaster/GameState/BlasterGameState.h"
-#include "Blaster/GameState/BlasterGameState.h"
 #include "Blaster/Playerstate/BlasterPlayerState.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/Character/BlasterCharacter.h"
@@ -67,22 +66,21 @@ void ATeamsGameMode::Tick(float DeltaTime)
 		{
 			EndMatchTime = GetWorld()->GetTimeSeconds();
 			bRoundHasEnded = true;
-			if (GetBlasterGameState())
+			//Se determina si se acabo el juego
+			
+			//Se verifican los Scores para ver si algun team ha ganado
+			ETeam CheckWinnerTeam = CheckIfTeamHasWon();
+			if (CheckWinnerTeam == ETeam::ET_NoTeam)
 			{
-				if (GetBlasterGameState()->RedTeamScore == GetBlasterGameState()->BlueTeamScore)
-				{
-					GetBlasterGameState()->ShowEndRoundResult(EEndRoundType::ERT_Draw);
-				}
-				else if (GetBlasterGameState()->RedTeamScore > GetBlasterGameState()->BlueTeamScore)
-				{
-					GetBlasterGameState()->ShowEndRoundResult(EEndRoundType::ERT_RedTeam);
-				}
-				else
-				{
-					GetBlasterGameState()->ShowEndRoundResult(EEndRoundType::ERT_BlueTeam);
-				}
+				ShowRoundWinner();
+				SetMatchState(MatchState::Cooldown);
 			}
-			SetMatchState(MatchState::Cooldown);
+			else
+			{
+				EndGame(true, CheckWinnerTeam);
+				DestroyCurrentCharacters();
+				SetMatchState(MatchState::EndGame);
+			}
 		}
 	}
 	else if (MatchState == MatchState::Cooldown)
@@ -90,32 +88,16 @@ void ATeamsGameMode::Tick(float DeltaTime)
 		if (GetBlasterGameState() == nullptr) return;
 		if (bRoundHasEnded) //Hacer una vez al termino de una ronda
 		{
-			bRoundHasEnded = false;
+			DestroyCurrentCharacters();
+
 		}
 		//Timer para dar paso al siguiente evento
 		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
 		if (CountdownTime <= 0.f)
 		{
 			EndMatchTime = GetWorld()->GetTimeSeconds();
-			if(GetBlasterGameState())
-			{
-				if (GetBlasterGameState()->RedTeamRoundScore >= 3.f)
-				{
-					EndGame(true, true);
-					SetMatchState(MatchState::EndGame);
-
-				}
-				else if (GetBlasterGameState()->BlueTeamRoundScore >= 3.f)
-				{
-					EndGame(true, false);
-					SetMatchState(MatchState::EndGame);
-				}
-				else
-				{
-					bNewRound = true;
-					SetMatchState(MatchState::NewRound);
-				}
-			}
+			//Destruir el pawn de los jugadores
+			SetMatchState(MatchState::NewRound);
 		}
 	}
 	else if (MatchState == MatchState::NewRound)
@@ -123,19 +105,7 @@ void ATeamsGameMode::Tick(float DeltaTime)
 		if (bNewRound) //Hacer una vez al inicio de una nueva ronda
 		{
 			bNewRound = false;
-			//Itera por todos los jugadores y les avisa del Cambio del game State
-			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-			{
-				ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
-				if (BlasterPlayerController)
-				{
-					ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(BlasterPlayerController->GetPawn());
-					if (BlasterCharacter)
-					{
-						BlasterCharacter->Elim(false);
-					}
-				}
-			}
+			//Reaparecer a todos los jugadores
 			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
 			if (BGameState)
 			{
@@ -146,7 +116,7 @@ void ATeamsGameMode::Tick(float DeltaTime)
 		CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
 		if (CountdownTime <= 0.f)
 		{
-			
+			NewRound();
 			RoundStartTime = GetWorld()->GetTimeSeconds();
 			SetMatchState(MatchState::WaitingToStart);
 		}
@@ -156,6 +126,47 @@ void ATeamsGameMode::Tick(float DeltaTime)
 		//El juego se termina, se muestra el ganador y se sacan a todos los jugadores
 	}
 	
+}
+
+ETeam ATeamsGameMode::CheckIfTeamHasWon()
+{
+	//Designacion de rondas
+	if (GetBlasterGameState())
+	{
+		if (GetBlasterGameState()->RedTeamScore > GetBlasterGameState()->BlueTeamScore)  GetBlasterGameState()->RedTeamRoundScores();
+		else if (GetBlasterGameState()->BlueTeamScore > GetBlasterGameState()->RedTeamScore)  GetBlasterGameState()->BlueTeamRoundScores();
+
+		if (GetBlasterGameState()->RedTeamRoundScore >= 3.f)
+		{
+			return ETeam::ET_RedTeam;
+		}
+		else if (GetBlasterGameState()->BlueTeamRoundScore >= 3.f)
+		{
+			return ETeam::ET_BlueTeam;
+		}
+		return ETeam::ET_NoTeam;
+
+	}
+	return ETeam::ET_NoTeam;
+}
+
+void ATeamsGameMode::ShowRoundWinner()
+{
+	if (GetBlasterGameState())
+	{
+		if (GetBlasterGameState()->RedTeamScore == GetBlasterGameState()->BlueTeamScore)
+		{
+			GetBlasterGameState()->RoundEndResult(EEndRoundType::ERT_Draw);
+		}
+		else if (GetBlasterGameState()->RedTeamScore > GetBlasterGameState()->BlueTeamScore)
+		{
+			GetBlasterGameState()->RoundEndResult(EEndRoundType::ERT_RedTeam);
+		}
+		else
+		{
+			GetBlasterGameState()->RoundEndResult(EEndRoundType::ERT_BlueTeam);
+		}
+	}
 }
 
 void ATeamsGameMode::PostLogin(APlayerController* NewPlayer)
@@ -275,7 +286,14 @@ void ATeamsGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlas
 	}
 }
 
-void ATeamsGameMode::EndGame(bool Teams, bool Color)
+void ATeamsGameMode::EndGame(bool Teams, ETeam TeamWinner)
 {
-
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayerController)
+		{
+			BlasterPlayerController->ShowGameWinner(TeamWinner);
+		}
+	}
 }

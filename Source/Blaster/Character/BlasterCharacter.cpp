@@ -196,7 +196,7 @@ void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-
+	CalculateVisibility();
 	RotateInPlace(DeltaTime);
 	HideCameraIfCharacterClose();
 	PollInit();
@@ -498,7 +498,7 @@ void ABlasterCharacter::SetGhostMode()
 
 		}
 		DissolveMaterialInstance = RedDissolveMatInst;
-
+		/*
 		//Timer
 		GetWorld()->GetTimerManager().SetTimer(
 			VisibilityTimerHandle,
@@ -507,6 +507,7 @@ void ABlasterCharacter::SetGhostMode()
 			0.05f,  // Interval in seconds
 			true    // Loop the timer
 		);
+		*/
 	}	
 	if (GetCharacterMovement())
 	{
@@ -1327,36 +1328,58 @@ AWeapon* ABlasterCharacter::GetFlag()
 //Se calcula la velocidad en tick
 void ABlasterCharacter::CalculateVisibility()
 {
-	if (IsLocallyControlled() && GetGhost())
+	if (GetGhost() && IsLocallyViewed())
 	{
-		float Speed = GetVelocity().Size();
-		float NewVisibility = FMath::GetMappedRangeValueClamped(FVector2D(0.0f, GetCharacterMovement()->MaxWalkSpeed), FVector2D(0.0f, 0.6f), Speed);
+		if (Combat == nullptr) return;
+		float NewVisibility = 0.f;
+		if (Combat->CombatState == ECombatState::ECS_Stabbing) 
+		{
+			NewVisibility = 0.6f;
+		}
+		else
+		{
+			float Speed = GetVelocity().Size();
+			NewVisibility = FMath::GetMappedRangeValueClamped(FVector2D(0.0f, GetCharacterMovement()->MaxWalkSpeed), FVector2D(0.0f, 0.6f), Speed);
+		}
+		
+		if (!HasAuthority())
+		{
+			HandleChangeVisibility(NewVisibility);
+
+		}
 		ServerChangeVisibility(NewVisibility);
-		HandleChangeVisibility();
 	}
 }
 
 void ABlasterCharacter::ServerChangeVisibility_Implementation(float NewVisibility)
 {
-	Visibility = NewVisibility;
-	HandleChangeVisibility();
+	MulticastChangeVisibility(NewVisibility);
+}
+
+void ABlasterCharacter::MulticastChangeVisibility_Implementation(float NewVisibility)
+{
+	if (IsLocallyViewed() && !HasAuthority()) return;
+	HandleChangeVisibility(NewVisibility);
+}
+
+void ABlasterCharacter::HandleChangeVisibility(float NewVisibility)
+{
+	if (DynamicGohstMaterialInstance)
+	{
+		DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), NewVisibility);
+	}
 }
 
 void ABlasterCharacter::OnRep_Visibility()
 {
+	return;
 	if (!IsLocallyControlled())
 	{
-		HandleChangeVisibility();
+		HandleChangeVisibility(1.f);
 	}
 }
 
-void ABlasterCharacter::HandleChangeVisibility()
-{
-	if (DynamicGohstMaterialInstance)
-	{
-		DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
-	}
-}
+
 
 //actualizacion de la variable desde el servidor
 bool ABlasterCharacter::GetGhost() const

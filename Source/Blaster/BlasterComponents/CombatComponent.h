@@ -73,6 +73,9 @@ protected:
 	UFUNCTION(Server,Reliable)
 	void ServerStab();
 
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastStab();
+
 	UFUNCTION(Server, Reliable,BlueprintCallable)
 	void StabTrace();
 
@@ -212,25 +215,25 @@ private:
 	int32 MaxCarriedAmmo = 500;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingARAmmo = 30;
+	int32 StartingARAmmo = 300;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingRocketAmmo = 0;
+	int32 StartingRocketAmmo = 12;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingPistolAmmo = 0;
+	int32 StartingPistolAmmo = 32;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingSMGAmmo = 0;
+	int32 StartingSMGAmmo = 120;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingShotgunAmmo = 0;
+	int32 StartingShotgunAmmo = 32;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingSniperAmmo = 0;
+	int32 StartingSniperAmmo = 7;
 
 	UPROPERTY(EditAnywhere)
-	int32 StartingGrenadeLauncherAmmo = 0;
+	int32 StartingGrenadeLauncherAmmo = 12;
 
 	void InitializeCarriedAmmo();
 
@@ -263,6 +266,15 @@ private:
 
 	UPROPERTY()
 	AWeapon* TheFlag;
+	UPROPERTY(EditDefaultsOnly,Category = Combat)
+	FVector DefaultSocketOffset = FVector(0.f, 40.f, 100.f);
+	UPROPERTY(EditDefaultsOnly,Category = Combat)
+	FVector AimSocketOffset = FVector(0.f, 40.f, 100.f);
+	UPROPERTY(EditDefaultsOnly, Category = Combat)
+	FVector CrouchAimSocketOffset = FVector(0.f, 75.f, 0.f);
+	UPROPERTY(EditDefaultsOnly, Category = Combat)
+	FVector CrouchSocketOffset = FVector(0.f, 75.f, 0.f);
+	FVector CurrentSocketOffset;
 
 public:
 	FORCEINLINE int32 GetGrenades() const { return Grenades; }

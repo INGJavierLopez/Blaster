@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
+#include "Blaster/BlasterTypes/Team.h"
 #include "BlasterGameMode.generated.h"
 
 namespace MatchState
@@ -27,11 +28,13 @@ public:
 	virtual void RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController);
 	UFUNCTION(BlueprintCallable)
 	virtual void ResetCharacters();
+	virtual void NewRound();
+	virtual void DestroyCurrentCharacters();
 	virtual void RequestEndRound();
 	void PlayerLeftGame(class ABlasterPlayerState* PlayerLeaving);
 	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage);
 
-	virtual void EndGame(bool Teams, bool Color);
+	virtual void EndGame(bool Teams, ETeam TeamWinner);
 
 	UPROPERTY(EditDefaultsOnly)
 	float WarmupTime = 10.f;
