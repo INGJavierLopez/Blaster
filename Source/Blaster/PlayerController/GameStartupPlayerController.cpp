@@ -2,8 +2,10 @@
 
 
 #include "GameStartupPlayerController.h"
+#include "Blaster/PlayerState/BlasterPlayerState.h" 
 #include "Blaster/HUD/LobbyHUD.h"
 #include "Blaster/HUD/BlasterHUD.h"
+#include "Blaster/HUD/SelectTeam.h"
 #include "Components/TextBlock.h"
 #include "Blaster/GameMode/LobbyGameMode.h"
 #include "Kismet/GameplayStatics.h"
@@ -35,6 +37,16 @@ void AGameStartupPlayerController::ClientReportServerTime_Implementation(float T
 void AGameStartupPlayerController::Tick(float Deltatime)
 {
 	Super::Tick(Deltatime);
+	ABlasterPlayerState* BPlayerState = GetPlayerState<ABlasterPlayerState>();
+
+	if (BPlayerState)
+	{
+		//EStooooooooooooo
+		FString Data = BPlayerState->GetName();
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, Deltatime, FColor::Orange, Data);
+	}
+
 	CheckTimeSync(Deltatime);
 	ServerRequestServerGameState();
 	PollInit();
@@ -52,7 +64,76 @@ void AGameStartupPlayerController::BeginPlay()
 	}
 }
 
+void AGameStartupPlayerController::HandleTabWidget()
+{
+	
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD)
+	{
+		if (BlasterHUD->SelectTeam == nullptr)  BlasterHUD->AddSelectTeam();
+		if (BlasterHUD->SelectTeam)
+		{
+			if (BlasterHUD->SelectTeam->IsVisible())
+			{
+				BlasterHUD->SelectTeam->SetVisibility(ESlateVisibility::Hidden);
+				FInputModeGameOnly InputMode;
+				SetInputMode(InputMode);
+				bShowMouseCursor = false;
+			}
+			else 
+			{
+				BlasterHUD->SelectTeam->SetVisibility(ESlateVisibility::Visible);
+				FInputModeGameAndUI  InputMode;
+				InputMode.SetWidgetToFocus(BlasterHUD->SelectTeam->TakeWidget());
+				InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+				SetInputMode(InputMode);
+				bShowMouseCursor = true;
+			}
+		}
+	}
+}
 
+void AGameStartupPlayerController::JoinToGroup(EGroup NewGroup)
+{
+	ServerRequestJoinToGroup(NewGroup);
+}
+
+
+void AGameStartupPlayerController::ServerRequestJoinToGroup_Implementation(EGroup NewGroup)
+{
+	ALobbyGameMode* GameMode = Cast<ALobbyGameMode>(UGameplayStatics::GetGameMode(this));
+	if (GameMode)
+	{
+		GameMode->AssingPlayerToGroup(this,NewGroup);
+	}
+}
+
+void AGameStartupPlayerController::UpdateTeamScoreTab(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB)
+{
+	ClientUpdateScoreTab(GroupA, GroupB);
+}
+
+void AGameStartupPlayerController::ClientRemoveCurrentHUD_Implementation()
+{
+	if (BlasterHUD)
+	{
+		if (BlasterHUD->SelectTeam) BlasterHUD->SelectTeam->RemoveFromParent();
+		BlasterHUD->Destroy();
+	}
+	FInputModeGameOnly IMGameOnly;
+	SetInputMode(IMGameOnly);
+	bShowMouseCursor = false;
+
+}
+
+void AGameStartupPlayerController::ClientUpdateScoreTab_Implementation(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD == nullptr) return;
+	if (BlasterHUD->SelectTeam == nullptr)  BlasterHUD->AddSelectTeam();
+	if (BlasterHUD->SelectTeam == nullptr) return;
+	BlasterHUD->SelectTeam->UpdateTeamWidget(GroupA, GroupB);
+}
 
 void AGameStartupPlayerController::CheckTimeSync(float DeltaTime)
 {
@@ -70,6 +151,8 @@ void AGameStartupPlayerController::ServerRequestServerTimeRemaining_Implementati
 	if (LobbyGameMode == nullptr) return;
 	ClientReportServerTimeRemaining(LobbyGameMode->GetTRTT());
 }
+
+
 
 void AGameStartupPlayerController::ClientReportServerTimeRemaining_Implementation(float ServerTimeRemaining)
 {

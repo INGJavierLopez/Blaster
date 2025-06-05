@@ -6,8 +6,12 @@
 #include "GameFramework/PlayerController.h"
 #include "CharacterOverlay.h"
 #include "Announcement.h"
+#include "NewRound.h"
 #include "EndRound.h"
 #include "EndGame.h"
+#include "SelectTeam.h"
+#include "ScoreTab.h"
+#include "TeamScoreTab.h"
 #include "ElimAnnouncement.h"
 #include "Components/HorizontalBox.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
@@ -87,7 +91,44 @@ void ABlasterHUD::AddAnnouncement()
 	{
 		Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
 		Announcement->AddToViewport();
-		Announcement->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void ABlasterHUD::AddSelectTeam()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && SelectTeamClass)
+	{
+		SelectTeam = CreateWidget<USelectTeam>(PlayerController, SelectTeamClass);
+		SelectTeam->AddToViewport();
+		SelectTeam->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void ABlasterHUD::AddScoreTab()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && ScoreTabClass)
+	{
+		ScoreTab = CreateWidget<UScoreTab>(PlayerController, ScoreTabClass);
+		if (ScoreTab)
+		{
+			ScoreTab->AddToViewport();
+		}
+	}
+}
+
+void ABlasterHUD::AddTeamScoreTab()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && TeamScoreTabClass)
+	{
+		TeamScoreTab = CreateWidget<UTeamScoreTab>(PlayerController, TeamScoreTabClass);
+		if (TeamScoreTab)
+		{
+			TeamScoreTab->AddToViewport();
+			TeamScoreTab->SetVisibility(ESlateVisibility::Hidden);
+		}
 	}
 }
 void ABlasterHUD::AddLobbyHUD()
@@ -96,7 +137,23 @@ void ABlasterHUD::AddLobbyHUD()
 	if (PlayerController && LobbyHUDClass)
 	{
 		LobbyHUD = CreateWidget<ULobbyHUD>(PlayerController, LobbyHUDClass);
-		LobbyHUD->AddToViewport();
+		if (LobbyHUD)
+		{
+			LobbyHUD->AddToViewport();
+		}
+	}
+}
+void ABlasterHUD::AddNewRound()
+{
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (PlayerController && NewRoundClass)
+	{
+		NewRound = CreateWidget<UNewRound>(PlayerController, NewRoundClass);
+		if (NewRound)
+		{
+			NewRound->AddToViewport();
+
+		}
 	}
 }
 void ABlasterHUD::AddEndRound()
@@ -105,7 +162,11 @@ void ABlasterHUD::AddEndRound()
 	if (PlayerController && EndRoundClass)
 	{
 		EndRound = CreateWidget<UEndRound>(PlayerController, EndRoundClass);
-		EndRound->AddToViewport();
+		if (EndRound)
+		{
+			EndRound->AddToViewport();
+
+		}
 	}
 }
 
@@ -115,9 +176,12 @@ void ABlasterHUD::AddEndGame()
 	if (PlayerController && EndGameClass)
 	{
 		EndGame = CreateWidget<UEndGame>(PlayerController, EndGameClass);
-		EndGame->AddToViewport();
-		EndGame->SetVisibility(ESlateVisibility::Visible);
+		if (EndGame)
+		{
+			EndGame->AddToViewport();
+			EndGame->SetVisibility(ESlateVisibility::Visible);
 
+		}
 	}
 }
 
@@ -168,8 +232,13 @@ void ABlasterHUD::LoadAnnouncement()
 {
 	APlayerController* PlayerController = GetOwningPlayerController();
 	Announcement = CreateWidget<UAnnouncement>(PlayerController, AnnouncementClass);
-	Announcement->SetVisibility(ESlateVisibility::Hidden);
+	if (Announcement)
+	{
+		Announcement->SetVisibility(ESlateVisibility::Hidden);
+	}
 }
+
+
 
 void ABlasterHUD::ElimAnnouncementTimerFinished(UElimAnnouncement* MSGToRemove)
 {

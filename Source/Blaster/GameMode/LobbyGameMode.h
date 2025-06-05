@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
+#include "Blaster/BlasterTypes/ScoreTabStructures.h"
+#include "Blaster/BlasterTypes/Group.h"
 #include "LobbyGameMode.generated.h"
 
 UENUM(BlueprintType)
@@ -30,6 +32,7 @@ public:
 	virtual void BeginPlay();
 
 	virtual void Tick(float DeltaSeconds) override;
+	void Debug(float DeltaSeconds);
 	UPROPERTY(BlueprintReadWrite)
 	ESessionState SessionState = ESessionState::WaitingForPlayers;
 	//Borrar
@@ -37,10 +40,13 @@ public:
 	void WaitGameMode();
 
 	bool flag = false;
+
+	void AssingPlayerToGroup(APlayerController* PlayerController,EGroup NewGroup);
 protected:
 	void StartGame();
 
 private:
+
 	class UGameInstance* GameInstance;
 
 	UPROPERTY(EditDefaultsOnly)
@@ -52,6 +58,13 @@ private:
 	bool StartCounter = false;
 
 	class AGameStartupPlayerController* GameStartupPC;
+
+
+	TArray< APlayerController*> PendingPlayerControllers;
+	void UpdateTeamsTable();
+
+	void CheckLocalPlayers(float DeltaTime);
+	AGameStartupPlayerController* GetPlayerControllerByNetID(UWorld* World, const FString& NetID);
 public:
 	FORCEINLINE float GetTRTT() { return TimeRemainingToTravel; }
 };

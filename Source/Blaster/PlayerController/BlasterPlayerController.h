@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "Blaster/BlasterTypes/Team.h"
+#include "Blaster/BlasterTypes/ScoreTabStructures.h"
 #include "BlasterPlayerController.generated.h"
 
 enum class EEndRoundType : uint8;
@@ -30,6 +31,13 @@ public:
 	void SetHUDMatchCountdown(float CountdownTime);
 	void SetHUDAnnouncementCountdown(float CountdownTime);
 	void SetHUDGrenades(int32 Grenades);
+
+	//ScoreTab
+	void HandleTabWidget(bool show);
+
+	void UpdateTeamScoreTab(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB);
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateScoreTab(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB);
 	virtual void OnPossess(APawn* InPawn) override;
 
 	virtual void Tick(float Deltatime) override;
@@ -40,6 +48,7 @@ public:
 	void OnMatchStateSet(FName State, bool bTeamsMatch = false);
 
 	void HandleMatchHasStarted(bool bTeamsMatch = false);
+	void HandleWaitingToStart();
 	void HandleNewRound();
 	void HandleCooldown();
 	void HandleEndGame();
@@ -57,10 +66,12 @@ public:
 	void SetHUDRedTeamRounds(int32 RedRounds);
 	void SetHUDBlueTeamRounds(int32 BlueRounds);
 
-
-	void SetGameplay(bool Enable);
+	//Enable or disable movement
+	void SetPlayerGameplayMovement(bool Enable);
 
 	void HandleRoundScore(float Red, float Blue,int32, EEndRoundType EndMatchType);
+
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupInputComponent() override;
@@ -189,5 +200,5 @@ private:
 	float HighPingThreshold = 50.f;
 	
 public:
-	FORCEINLINE bool IsMatchInProgress();
+	bool IsMatchInProgress();
 };

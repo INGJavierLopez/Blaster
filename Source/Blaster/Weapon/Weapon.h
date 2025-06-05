@@ -126,6 +126,9 @@ protected:
 	/**
 	* Trace end with scatter
 	*/
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon|Scatter")
+	UCurveFloat* ScatterCurve;
+
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	float DistanceToSphere = 800.f;

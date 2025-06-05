@@ -25,7 +25,12 @@ public:
 	virtual void RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController);
 
 protected:
-	virtual void HandleMatchHasStarted() override;
+	virtual void HandleWaitingToStart(float DeltaTime) override;
+	virtual void HandleMatchHasStarted(float DeltaTime) override;
+	virtual void HandleNewRound(float DeltaTime) override;
+	virtual void HandleMatchInProgress(float DeltaTime) override;
+	virtual void HandleCooldown(float DeltaTime) override;
+	virtual void HandleEndGame(float DeltaTime) override;
 private:
 	class ABlasterGameState* BlasterGameState;
 

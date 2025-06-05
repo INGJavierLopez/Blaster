@@ -5,11 +5,30 @@
 #include "GameFramework/GameStateBase.h"
 #include "MultiplayerSessionsSubsystem.h"
 #include "Blaster/PlayerController/GameStartupPlayerController.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerState.h"
+#include "Blaster/GameInstance/BlasterGameInstance.h"
 
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
-	
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!BlasterGameInstance) return;
+	if (NewPlayer && NewPlayer->PlayerState)
+	{
+		FString NetID = NewPlayer->PlayerState->GetUniqueId()->ToString();
+
+		// Lógica para asignar el grupo
+		EGroup Group = EGroup::EG_A;
+
+		// Asignar al grupo
+		BlasterGameInstance->AssignPlayerToGroup(NetID, Group);
+		UpdateTeamsTable();
+	}
+	else
+	{
+		PendingPlayerControllers.AddUnique(NewPlayer);
+	}
 }
 
 
@@ -23,7 +42,8 @@ void ALobbyGameMode::BeginPlay()
 void ALobbyGameMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
+	Debug(DeltaSeconds);
+	CheckLocalPlayers(DeltaSeconds);
 	GameInstance = GetGameInstance();
 	if (StartCounter)
 	{
@@ -42,7 +62,6 @@ void ALobbyGameMode::Tick(float DeltaSeconds)
 		{
 			if (SessionState == ESessionState::WaitingForPlayers)
 			{
-				if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Green, TEXT("Una vez"));
 				SessionState = ESessionState::ReadyToPlay;
 				StartCounter = true;
 			}
@@ -102,13 +121,148 @@ void ALobbyGameMode::Tick(float DeltaSeconds)
 
 }
 
+void ALobbyGameMode::Debug(float DeltaSeconds)
+{
+	// Enviar los datos actualizados a los PlayerControllers
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGameStartupPlayerController* BlasterPlayerController = Cast<AGameStartupPlayerController>(*It);
+		if (BlasterPlayerController)
+		{
+			if (BlasterPlayerController->PlayerState)
+			{
+				FString Data = BlasterPlayerController->PlayerState->GetPlayerName();
+				if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaSeconds, FColor::Orange, Data);
+				FString Data2 = BlasterPlayerController->PlayerState->GetUniqueId()->ToString();
+				if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaSeconds, FColor::Orange, Data2);
+
+			}
+		}
+	}
+}
+
 void ALobbyGameMode::WaitGameMode()
 {
 	flag = !flag;
 }
 
+void ALobbyGameMode::AssingPlayerToGroup(APlayerController* PlayerController,EGroup NewGroup)
+{
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!BlasterGameInstance) return;
+	if (PlayerController && PlayerController->PlayerState)
+	{
+		FString NetID = PlayerController->PlayerState->GetUniqueId()->ToString();
+		BlasterGameInstance->AssignPlayerToGroup(NetID, NewGroup);
+	}
+
+	UpdateTeamsTable();
+	
+}
+AGameStartupPlayerController* ALobbyGameMode::GetPlayerControllerByNetID(UWorld* World, const FString& NetID)
+{
+	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGameStartupPlayerController* PlayerController = Cast<AGameStartupPlayerController>(It->Get());
+		if (PlayerController && PlayerController->PlayerState &&
+			PlayerController->PlayerState->GetUniqueId().IsValid() &&
+			PlayerController->PlayerState->GetUniqueId()->ToString() == NetID)
+		{
+			return PlayerController;
+		}
+	}
+
+	return nullptr;
+}
+
+void ALobbyGameMode::UpdateTeamsTable()
+{
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!BlasterGameInstance) return;
+
+	// Crear los arreglos para almacenar los jugadores según su grupo
+	TArray<FScoreSlotInfo> GroupA;
+	TArray<FScoreSlotInfo> GroupB;
+
+	// Iterar directamente sobre el mapa PlayerGroupMap
+	for (const TPair<FString, EGroup>& Entry : BlasterGameInstance->PlayerGroupMap)
+	{
+		const FString& PlayerControllerID = Entry.Key;
+		const EGroup& PlayerGroup = Entry.Value;
+
+		// Buscar el PlayerController asociado
+		AGameStartupPlayerController* PlayerController = GetPlayerControllerByNetID(GetWorld(), PlayerControllerID);
+		if (!PlayerController) continue;
+
+		// Crear la estructura FScoreSlotInfo para este jugador
+		FScoreSlotInfo NewPlayerInfo;
+		if (PlayerController->PlayerState)
+		{
+			NewPlayerInfo.PlayerName = PlayerController->PlayerState->GetPlayerName();
+
+		}
+
+		// Asignar al grupo correspondiente
+		if (PlayerGroup == EGroup::EG_A)
+		{
+			GroupA.Add(NewPlayerInfo);
+		}
+		else if (PlayerGroup == EGroup::EG_B)
+		{
+			GroupB.Add(NewPlayerInfo);
+		}
+	}
+
+	// Enviar los datos actualizados a los PlayerControllers
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGameStartupPlayerController* BlasterPlayerController = Cast<AGameStartupPlayerController>(*It);
+		if (BlasterPlayerController)
+		{
+			BlasterPlayerController->UpdateTeamScoreTab(GroupA, GroupB);
+		}
+	}
+}
+
+void ALobbyGameMode::CheckLocalPlayers(float DeltaTime)
+{
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (PendingPlayerControllers.IsEmpty()) return;
+	FString Data = FString::Printf(TEXT("Total: %d"), PendingPlayerControllers.Num());
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Black, Data);
+
+	for(APlayerController* PlayerController : PendingPlayerControllers)
+	{
+		if (PlayerController->PlayerState)
+		{
+			FString NetID = PlayerController->PlayerState->GetUniqueId()->ToString();
+			// Lógica para asignar el grupo
+			EGroup Group = EGroup::EG_B;
+
+			// Asignar al grupo
+			BlasterGameInstance->AssignPlayerToGroup(NetID, Group);
+			PendingPlayerControllers.Remove(PlayerController);
+			UpdateTeamsTable();
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Black, FString("Se Corrigio un PlayerState"));
+		}
+		else
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Black, FString("No queda el LOcal"));
+
+		}
+	}
+}
+
 void ALobbyGameMode::StartGame()
 {
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGameStartupPlayerController* GSPlayerController = Cast<AGameStartupPlayerController>(*It);
+		if (GSPlayerController == nullptr) return;
+		GSPlayerController->ClientRemoveCurrentHUD();
+
+	}
+
 	UMultiplayerSessionsSubsystem* Subsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
 	check(Subsystem);
 	UWorld* World = GetWorld();

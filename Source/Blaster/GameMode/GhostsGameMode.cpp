@@ -52,23 +52,23 @@ void AGhostsGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABla
 void AGhostsGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	ABlasterGameMode::PostLogin(NewPlayer);
-	GameModeSignal();
-	if (BlasterGameState)
+	//GameModeSignal();
+	BlasterGameState == nullptr ? Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)) : BlasterGameState;
+	if (BlasterGameState == nullptr) return;
+
+	ABlasterPlayerState* BPState = NewPlayer->GetPlayerState<ABlasterPlayerState>();
+	if (BPState && BPState->GetTeam() == ETeam::ET_NoTeam)
 	{
-		ABlasterPlayerState* BPState = NewPlayer->GetPlayerState<ABlasterPlayerState>();
-		if (BPState && BPState->GetTeam() == ETeam::ET_NoTeam)
+		if (BlasterGameState->BlueTeam.Num() >= BlasterGameState->RedTeam.Num())
 		{
-			if (BlasterGameState->BlueTeam.Num() >= BlasterGameState->RedTeam.Num())
-			{
-				BlasterGameState->RedTeam.AddUnique(BPState);
-				BPState->SetTeam(ETeam::ET_RedTeam);
-				BPState->SetGhost(true);
-			}
-			else
-			{
-				BlasterGameState->BlueTeam.AddUnique(BPState);
-				BPState->SetTeam(ETeam::ET_BlueTeam);
-			}
+			BlasterGameState->RedTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_RedTeam);
+			BPState->SetGhost(true);
+		}
+		else
+		{
+			BlasterGameState->BlueTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_BlueTeam);
 		}
 	}
 
@@ -94,9 +94,14 @@ void AGhostsGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* 
 	}
 }
 
-void AGhostsGameMode::HandleMatchHasStarted()
+void AGhostsGameMode::HandleWaitingToStart(float DeltaTime)
 {
-	ABlasterGameMode::HandleMatchHasStarted();
+	Super::HandleWaitingToStart(DeltaTime);
+}
+
+void AGhostsGameMode::HandleMatchHasStarted(float DeltaTime)
+{
+	ABlasterGameMode::HandleMatchHasStarted(DeltaTime);
 	if (BlasterGameState)
 	{
 
@@ -119,6 +124,51 @@ void AGhostsGameMode::HandleMatchHasStarted()
 			}
 		}
 	}
+}
+
+void AGhostsGameMode::HandleNewRound(float DeltaTime)
+{
+	if (bNewRound) //Hacer una vez al inicio de una nueva ronda
+	{
+		bNewRound = false;
+		//Reaparecer a todos los jugadores
+		//Mostrar el widget de ronda
+		//No se pueden mover los panas
+		ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
+		if (BGameState)
+		{
+			BGameState->ResetTeamScores();
+		}
+		//Reasignar Judores a su posicion de defecto
+		//RestartPlayers();
+		//AssingGroupsToNewTeam();
+		//UpdateTeamScoreWidget();
+
+	}
+	CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+
+
+		bFirstRound = false;
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		SetMatchState(MatchState::MatchInProgress);
+	}
+}
+
+void AGhostsGameMode::HandleMatchInProgress(float DeltaTime)
+{
+	Super::HandleMatchInProgress(DeltaTime);
+}
+
+void AGhostsGameMode::HandleCooldown(float DeltaTime)
+{
+	Super::HandleCooldown(DeltaTime);
+}
+
+void AGhostsGameMode::HandleEndGame(float DeltaTime)
+{
+	Super::HandleEndGame(DeltaTime);
 }
 
 void AGhostsGameMode::PollInit()

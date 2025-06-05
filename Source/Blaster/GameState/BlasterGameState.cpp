@@ -10,6 +10,7 @@
 #include "Blaster/GameMode/GhostsGameMode.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "Blaster/GameInstance/BlasterGameInstance.h"
 
 void ABlasterGameState::BeginPlay()
 {
@@ -26,6 +27,7 @@ void ABlasterGameState::BeginPlay()
 		bGhostMode = false;
 		ServerSetGhostMode(bGhostMode);
 	}
+	InitializeGroupsFromGameInstance();
 }
 
 void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -41,6 +43,51 @@ void ABlasterGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterGameState, CurrentRound); 
 	DOREPLIFETIME(ABlasterGameState, EndRoundType);
 }
+void ABlasterGameState::InitializeGroupsFromGameInstance()
+{
+	UBlasterGameInstance* GameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!GameInstance) return;
+
+	GroupA.Empty();
+	GroupB.Empty();
+
+	for (const TPair<FString, EGroup>& Entry : GameInstance->PlayerGroupMap)
+	{
+		APlayerController* FoundPlayerController = GetPlayerControllerByNetID(GetWorld(), Entry.Key);
+		if (FoundPlayerController == nullptr) return; 
+		if (FoundPlayerController->PlayerState == nullptr) return;
+
+		FScoreSlotInfo NewPlayerInfo;
+
+		NewPlayerInfo.PlayerName = FoundPlayerController->PlayerState->GetPlayerName();
+
+		if (Entry.Value == EGroup::EG_A)
+		{
+			GroupA.Add(NewPlayerInfo);
+		}
+		else if (Entry.Value == EGroup::EG_B)
+		{
+			GroupB.Add(NewPlayerInfo);
+		}
+	}
+}
+
+APlayerController* ABlasterGameState::GetPlayerControllerByNetID(UWorld* World, const FString& NetID)
+{
+	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PlayerController = Cast<APlayerController>(It->Get());
+		if (PlayerController && PlayerController->PlayerState &&
+			PlayerController->PlayerState->GetUniqueId().IsValid() &&
+			PlayerController->PlayerState->GetUniqueId()->ToString() == NetID)
+		{
+			return PlayerController;
+		}
+	}
+
+	return nullptr;
+}
+
 
 void ABlasterGameState::UpdateTopScore(ABlasterPlayerState* ScoringPlayer)
 {

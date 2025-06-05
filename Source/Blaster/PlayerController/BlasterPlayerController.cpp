@@ -4,8 +4,12 @@
 #include "BlasterPlayerController.h"
 #include "Blaster/HUD/BlasterHUD.h"
 #include "Blaster/HUD/CharacterOverlay.h"
+#include "Blaster/HUD/NewRound.h"
 #include "Blaster/HUD/EndRound.h"
 #include "Blaster/HUD/EndGame.h"
+#include "Blaster/HUD/LobbyHUD.h"
+#include "Blaster/HUD/TeamScoreTab.h"
+#include "Blaster/HUD/ScoreTab.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Blaster/Character/BlasterCharacter.h"
@@ -19,6 +23,8 @@
 #include "Components/Image.h"
 #include "Blaster/HUD/ReturnToMainMenu.h"
 #include "Blaster/BlasterTypes/Announcement.h"
+#include "Blaster/GameInstance/BlasterGameInstance.h"
+
 
 
 
@@ -77,6 +83,7 @@ void ABlasterPlayerController::HideTeamScores()
 		BlasterHUD->CharacterOverlay->BlueTeamRounds &&
 		BlasterHUD->CharacterOverlay->TeamsScoreImage &&
 		BlasterHUD->CharacterOverlay->BlueTeamScoreImage &&
+
 		BlasterHUD->CharacterOverlay->RedTeamScoreImage;
 
 	if (bHUDValid)
@@ -187,7 +194,7 @@ void ABlasterPlayerController::ClientElimAnnouncement_Implementation(APlayerStat
 	}
 }
 
-void ABlasterPlayerController::SetGameplay(bool Enable)
+void ABlasterPlayerController::SetPlayerGameplayMovement(bool Enable)
 {
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
 
@@ -265,6 +272,10 @@ void ABlasterPlayerController::HandleRoundScore(float Red, float Blue, int32 Cur
 			}
 		}
 		
+		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
+		if (BlasterHUD->CharacterOverlay == nullptr) return;
+		FString NuevaRondaText = FString::Printf(TEXT("Ronda %d"), CurrentRound);
+		BlasterHUD->CharacterOverlay->CurrentRoundText->SetText(FText::FromString(NuevaRondaText));
 	}
 	
 }
@@ -275,6 +286,7 @@ void ABlasterPlayerController::BeginPlay()
 
 	BlasterHUD = Cast<ABlasterHUD>(GetHUD());
 	ServerCheckMatchState();
+
 }
 
 void ABlasterPlayerController::SetupInputComponent()
@@ -297,10 +309,44 @@ void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 void ABlasterPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
 	CheckTimeSync(DeltaTime);
 	SetHUDTime();
 	PollInit();
 	CheckPing(DeltaTime);
+	if (PlayerState)
+	{
+		FString Data = FString::Printf(TEXT("Ping : %d"), PlayerState->GetCompressedPing() * 4);
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DELTA, FColor::Orange, Data);
+	}
+	return;
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (BlasterGameInstance)
+	{
+		if (GetLocalPlayer() && GEngine)
+		{
+			FString ID = GetLocalPlayer()->GetPreferredUniqueNetId()->ToString();
+			EGroup Grupo = BlasterGameInstance->GetPlayerGroup(ID);
+			FString Text;
+			switch (Grupo)
+			{
+			case EGroup::EG_A:
+				Text = FString(TEXT("Equipo Azul"));
+				GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Orange, Text);
+				break;
+			case EGroup::EG_B:
+				Text = FString(TEXT("Equipo Rojo"));
+				GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Orange, Text);
+				break;
+			case EGroup::EG_NG:
+				Text = FString(TEXT("NO TIENE EQUIPO"));
+				GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Orange, Text);
+				break;
+			default:
+				break;
+			}
+		}
+	}
 	
 }
 
@@ -420,21 +466,13 @@ void ABlasterPlayerController::ServerCheckMatchState_Implementation()
 	if (GameMode)
 	{
 		bShowTeamScores = GameMode->bTeamsMatch; // added this while trying to debug the client not having the teams match spawned
-		if (GameMode->bTeamsMatch)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("GAME MODE DICE YES TEAM"));
 
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("GAME MODE DICE NO TEAM"));
-		}
 		WarmupTime = GameMode->WarmupTime;
 		MatchTime = GameMode->MatchTime;
 		CooldownTime = GameMode->CooldownTime;
 		LevelStartingTime = GameMode->LevelStartingTime;
 		MatchState = GameMode->GetMatchState();
-		RoundStartTime = GameMode->RoundStartTime;
+		RoundStartTime = GameMode->GetStateStartTime();
 		ClientJoinMidgame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime, bShowTeamScores, RoundStartTime); // added the bShowTeamScores to the Client joinmidgame so we can pass it to OnMatchState Set
 	}
 }
@@ -448,13 +486,51 @@ void ABlasterPlayerController::ClientJoinMidgame_Implementation(FName StateOfMat
 	MatchState = StateOfMatch;
 	RoundStartTime = InRoundStartTime;
 	OnMatchStateSet(MatchState, bIsTeamsMatch); // added the bIsTeamsMatch here
+}
+
+void ABlasterPlayerController::HandleTabWidget(bool show)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 	if (BlasterHUD)
 	{
-		//if(MatchState == MatchState::WaitingToStart)
-
-		BlasterHUD->AddAnnouncement();
-
+		if (bShowTeamScores)
+		{
+			if (BlasterHUD->TeamScoreTab == nullptr)  BlasterHUD->AddTeamScoreTab();
+			if (BlasterHUD->TeamScoreTab)
+			{
+				if(show) BlasterHUD->TeamScoreTab->SetVisibility(ESlateVisibility::Visible);
+				else BlasterHUD->TeamScoreTab->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
+		else
+		{
+			if (BlasterHUD->ScoreTab == nullptr)  BlasterHUD->AddScoreTab();
+			if (BlasterHUD->ScoreTab)
+			{
+				if (show) BlasterHUD->ScoreTab->SetVisibility(ESlateVisibility::Visible);
+				else BlasterHUD->ScoreTab->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
 	}
+}
+
+void ABlasterPlayerController::UpdateTeamScoreTab(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB)
+{
+	
+	ClientUpdateScoreTab(GroupA, GroupB);
+}
+
+
+
+void ABlasterPlayerController::ClientUpdateScoreTab_Implementation(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD == nullptr) return;
+	if (BlasterHUD->TeamScoreTab == nullptr)  BlasterHUD->AddTeamScoreTab();
+	if (BlasterHUD->TeamScoreTab == nullptr) return;
+	BlasterHUD->TeamScoreTab->UpdateTables(GroupA, GroupB);
+	//BlasterHUD->TeamScoreTab->UpdateWidgetTeamScoreTab(GroupA, GroupB);
+	if (BlasterHUD->EndRound) BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden);
 }
 
 void ABlasterPlayerController::OnPossess(APawn* InPawn)
@@ -615,8 +691,6 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 		BlasterHUD->Announcement->WarmupTime;
 	if (bHUDValid)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, TEXT("HUD VALID"));
-		if(!BlasterHUD->Announcement->IsVisible()) BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Visible);
 		if (CountdownTime < 0.f)
 		{
 			BlasterHUD->Announcement->WarmupTime->SetText(FText());
@@ -672,7 +746,7 @@ void ABlasterPlayerController::SetHUDTime()
 {
 	float TimeLeft = 0.f;
 	if (MatchState == MatchState::WaitingToStart) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
-	else if (MatchState == MatchState::InProgress) TimeLeft = MatchTime - (GetServerTime() + LevelStartingTime - RoundStartTime);
+	else if (MatchState == MatchState::MatchInProgress) TimeLeft = MatchTime - (GetServerTime() + LevelStartingTime - RoundStartTime);
 	else if (MatchState == MatchState::Cooldown) TimeLeft = CooldownTime - (GetServerTime() - EndRoundTime);
 
 	uint32 SecondsLeft = FMath::CeilToInt(TimeLeft);
@@ -682,7 +756,7 @@ void ABlasterPlayerController::SetHUDTime()
 		{
 			SetHUDAnnouncementCountdown(TimeLeft);
 		}
-		if (MatchState == MatchState::InProgress)
+		if (MatchState == MatchState::MatchInProgress)
 		{
 			SetHUDMatchCountdown(TimeLeft);
 		}
@@ -754,19 +828,22 @@ void ABlasterPlayerController::ReceivedPlayer()
 
 void ABlasterPlayerController::OnMatchStateSet(FName State,bool bTeamsMatch)
 {
-	MatchState = State;
-
-	if (MatchState == MatchState::InProgress)
+	MatchState = State; 
+	if (MatchState == MatchState::WaitingToStart)
+	{
+		HandleWaitingToStart();
+	}
+	else if (MatchState == MatchState::NewRound)
+	{
+		HandleNewRound();
+	}
+	else if (MatchState == MatchState::MatchInProgress)
 	{
 		HandleMatchHasStarted(bTeamsMatch);
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
 		HandleCooldown();
-	}
-	else if (MatchState == MatchState::NewRound)
-	{
-		HandleNewRound();
 	}
 	else if (MatchState == MatchState::EndGame)
 	{
@@ -776,13 +853,17 @@ void ABlasterPlayerController::OnMatchStateSet(FName State,bool bTeamsMatch)
 
 void ABlasterPlayerController::OnRep_MatchState()
 {
-	if (MatchState == MatchState::InProgress)
+	if (MatchState == MatchState::WaitingToStart)
 	{
-		HandleMatchHasStarted(bShowTeamScores);
+		HandleWaitingToStart();
 	}
 	else if (MatchState == MatchState::NewRound)
 	{
 		HandleNewRound();
+	}
+	else if (MatchState == MatchState::MatchInProgress)
+	{
+		HandleMatchHasStarted(bShowTeamScores);
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
@@ -796,49 +877,13 @@ void ABlasterPlayerController::OnRep_MatchState()
 
 bool ABlasterPlayerController::IsMatchInProgress()
 {
-	if (MatchState == MatchState::InProgress) return true;
+	if (MatchState == MatchState::MatchInProgress) return true;
 
 	return false;
 }
 
-
-
-void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
-{
-	//UE_LOG(LogTemp, Warning, TEXT("HANDLE MATCH HAS STARTED CALLED"));
-
-	if (HasAuthority()) bShowTeamScores = bTeamsMatch;
-	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
-	if (BlasterHUD)
-	{
-		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
-		if(!BlasterHUD->CharacterOverlay->IsVisible()) BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Visible);
-		if (BlasterHUD->Announcement)
-		{
-			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
-		}
-		if (BlasterHUD->EndRound)
-		{
-			BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden);
-		}
-		//if (!HasAuthority()) return;
-		if (bTeamsMatch)
-		{
-			InitTeamScores();
-		}
-		else
-		{
-			HideTeamScores();
-		}
-		RoundStartTime = GetServerTime();
-	}
-}
-
-
-
 void ABlasterPlayerController::OnRep_ShowTeamScores()
 {
-	UE_LOG(LogTemp, Warning, TEXT("SHOW TEAM SCORES REP CALLED"));
 	if (bShowTeamScores)
 	{
 		InitTeamScores();
@@ -849,25 +894,93 @@ void ABlasterPlayerController::OnRep_ShowTeamScores()
 	}
 }
 
-void ABlasterPlayerController::HandleNewRound()
+void ABlasterPlayerController::HandleWaitingToStart()
 {
 	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
-	if (BlasterHUD && BlasterHUD->Announcement && BlasterHUD->CharacterOverlay && BlasterHUD->EndRound)
-		if (BlasterHUD && BlasterHUD->Announcement && BlasterHUD->CharacterOverlay && BlasterHUD->EndRound)
+
+	if (BlasterHUD && BlasterHUD->AnnouncementClass)
+	{
+		if (BlasterHUD->Announcement == nullptr) BlasterHUD->AddAnnouncement();
+
+	}
+}
+
+
+
+void ABlasterPlayerController::HandleNewRound()
+{
+
+	SetPlayerGameplayMovement(false);
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD == nullptr) return;
+	
+	if (BlasterHUD->NewRound == nullptr) BlasterHUD->AddNewRound();
+	if (BlasterHUD->NewRound == nullptr) return;
+	if (!BlasterHUD->NewRound->IsVisible()) BlasterHUD->NewRound->SetVisibility(ESlateVisibility::Visible);
+	ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	if (BlasterGameState == nullptr) return;
+	FString Data = FString::Printf(TEXT("Ronda %d"), BlasterGameState->CurrentRound);
+	if (BlasterHUD->NewRound->CurrentRoundText) BlasterHUD->NewRound->CurrentRoundText->SetText(FText::FromString(Data));
+
+	InitTeamScores();
+
+	if (BlasterHUD->Announcement)
+	{
+		BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden); //Ocultar Announcement
+	}
+	if (BlasterHUD->CharacterOverlay)
+	{
+		BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Hidden); //Ocultar Overlay
+	}
+	if (BlasterHUD->EndRound)
 	{
 		BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden); //ocultar End Round
-		BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden); //Ocultar Announcement
-		BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Hidden); //Ocultar Overlay
-		//Resetear los Scores
-		InitTeamScores();	
 	}
-	
+	//desactivar movimiento
+	SetPlayerGameplayMovement(false);
 }
+
+void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
+{
+
+	if (HasAuthority()) bShowTeamScores = bTeamsMatch;
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	if (BlasterHUD)
+	{
+		if (BlasterHUD->LobbyHUD) BlasterHUD->LobbyHUD->RemoveFromParent();
+		if (BlasterHUD->CharacterOverlay == nullptr) BlasterHUD->AddCharacterOverlay();
+		if (!BlasterHUD->CharacterOverlay->IsVisible()) BlasterHUD->CharacterOverlay->SetVisibility(ESlateVisibility::Visible);
+		if (BlasterHUD->Announcement)
+		{
+			BlasterHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
+		}
+		if (BlasterHUD->NewRound)
+		{
+			BlasterHUD->NewRound->SetVisibility(ESlateVisibility::Hidden);
+		}
+		if (BlasterHUD->EndRound)
+		{
+			BlasterHUD->EndRound->SetVisibility(ESlateVisibility::Hidden);
+		}
+		if (bTeamsMatch)
+		{
+			InitTeamScores();
+		}
+		else
+		{
+			HideTeamScores();
+		}
+		RoundStartTime = GetServerTime();
+	}
+	SetPlayerGameplayMovement(true);
+
+}
+
 
 void ABlasterPlayerController::HandleCooldown()
 {
 	/* Desactivacion de movimiento*/
-	SetGameplay(false);
+	SetPlayerGameplayMovement(false);
 	EndRoundTime = GetServerTime();
 	return;
 

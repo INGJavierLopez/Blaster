@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameState.h"
+#include "Blaster/BlasterTypes/ScoreTabStructures.h"
+#include "Blaster/BlasterTypes/Group.h"
 #include "BlasterGameState.generated.h"
 
 UENUM(BlueprintType)
@@ -44,12 +46,19 @@ public:
 	void HandleBlueTeamRoundScores();
 	void EndRound();
 
-
+	//Array de los players States
 	UPROPERTY(BlueprintReadWrite)
 	TArray<ABlasterPlayerState*> RedTeam;
 	UPROPERTY(BlueprintReadWrite)
-
 	TArray<ABlasterPlayerState*> BlueTeam;
+
+
+	//Array de la informacion de los score de los jugadores
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FScoreSlotInfo> GroupA;
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FScoreSlotInfo> GroupB;
 
 	/*
 	*  ROUNDS
@@ -117,4 +126,8 @@ private:
 	FTimerHandle EndRoundTimerHandle;
 
 	class ABlasterGameMode* BlasterGameMode;
+
+	void InitializeGroupsFromGameInstance();
+	APlayerController* GetPlayerControllerByNetID(UWorld* World, const FString& NetID);
+
 };

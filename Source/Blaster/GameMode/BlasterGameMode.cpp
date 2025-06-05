@@ -11,8 +11,9 @@
 
 namespace MatchState
 {
-	const FName NewRound = FName("NewRound");
-	const FName Cooldown = FName("Cooldown");
+	const FName NewRound = FName("NewRound"); 
+	const FName MatchInProgress = FName("MatchInProgress");
+	const FName Cooldown = FName("Cooldown"); 
 	const FName EndGame = FName("EndGame");
 }
 
@@ -20,6 +21,31 @@ ABlasterGameMode::ABlasterGameMode()
 {
 	bDelayedStart = true;
 }
+
+void ABlasterGameMode::Debug(float DeltaTime)
+{
+	if (!bShowDebugMessages) return;
+	FString Data;
+	if (MatchState == MatchState::MatchInProgress)
+	{
+		Data = FString::Printf(TEXT("MatchState : InProgress: %.2f"), CountdownTime);
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Data);
+	}
+	else if (MatchState == MatchState::Cooldown)
+	{
+		Data = FString::Printf(TEXT("MatchState : Cooldown: %.2f"), CountdownTime);
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Data);
+
+	}
+	else if (MatchState == MatchState::NewRound)
+	{
+		Data = FString::Printf(TEXT("MatchState : NewRound: %.2f"), CountdownTime);
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Data);
+
+	}
+}
+
+
 
 void ABlasterGameMode::BeginPlay()
 {
@@ -31,34 +57,187 @@ void ABlasterGameMode::BeginPlay()
 void ABlasterGameMode::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	Debug(DeltaTime);
 	if (MatchState == MatchState::WaitingToStart)
 	{
-		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f)
-		{
-			//SetMatchState(MatchState::WaitingToStart);
-			StartMatch();
-		}
+		HandleWaitingToStart(DeltaTime);
+	}
+
+	else if (MatchState == MatchState::MatchInProgress)
+	{
+		HandleMatchInProgress(DeltaTime);
+	}
+	else if (MatchState == MatchState::NewRound)
+	{
+		HandleNewRound(DeltaTime);
 	}
 	else if (MatchState == MatchState::InProgress)
 	{
-		CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f)
-		{
-			SetMatchState(MatchState::Cooldown);
-			EndMatchTime = GetWorld()->GetTimeSeconds();
-		}
+		HandleMatchHasStarted(DeltaTime);
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
-		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
-		if (CountdownTime <= 0.f)
-		{
-			RestartGame();
-		}
+		HandleCooldown(DeltaTime);
+	}
+	else if (MatchState == MatchState::EndGame)
+	{
+		HandleEndGame(DeltaTime);
 	}
 }
+
+void ABlasterGameMode::HandleWaitingToStart(float DeltaTime)
+{
+	CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+	if (CountdownTime <= 0.f)
+	{
+		//SetMatchState(MatchState::WaitingToStart);
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		bFirstRound = true;
+		StartMatch();
+	}
+}
+
+void ABlasterGameMode::HandleMatchHasStarted(float DeltaTime)
+{
+	bNewRound = true;
+	StateStartTime = GetWorld()->GetTimeSeconds();
+	SetMatchState(MatchState::NewRound);
+}
+
+void ABlasterGameMode::HandleNewRound(float DeltaTime)
+{
+	//Funcion que se llama cuando inicia el juego
+	if (bFirstRound)
+	{
+		bFirstRound = false;
+
+	}
+	CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		bNewRound = true;
+
+		SetMatchState(MatchState::MatchInProgress);
+		RestartPlayers();
+	}
+}
+
+void ABlasterGameMode::HandleMatchInProgress(float DeltaTime)
+{
+	//Se ejecuta cada nuevo inicio de ronda
+	if (bNewRound)
+	{
+		bNewRound = false;
+
+	}
+	CountdownTime = MatchTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+		SetMatchState(MatchState::Cooldown);
+	}
+}
+
+
+
+void ABlasterGameMode::HandleCooldown(float DeltaTime)
+{
+	CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+		StateStartTime = GetWorld()->GetTimeSeconds();
+
+		SetMatchState(MatchState::EndGame);
+
+	}
+}
+
+void ABlasterGameMode::HandleEndGame(float DeltaTime)
+{
+	CalculateWinners();
+}
+
+/**
+* Determinar el ganador de la Partida.
+*/
+void ABlasterGameMode::CalculateWinners()
+{
+	BlasterGameState == nullptr ? GetGameState<ABlasterGameState>() : BlasterGameState;
+	if (BlasterGameState)
+	{
+		// Estructura para guardar PlayerState + Score
+		TArray<TPair<ABlasterPlayerState*, float>> PlayerScores;
+
+		// Recorrer todos los PlayerStates
+		for (APlayerState* PlayerState : BlasterGameState->PlayerArray)
+		{
+			ABlasterPlayerState* BlasterPlayerState = Cast<ABlasterPlayerState>(PlayerState);
+			if (BlasterPlayerState)
+			{
+				float Score = BlasterPlayerState->GetScore();
+				PlayerScores.Add(TPair<ABlasterPlayerState*, float>(BlasterPlayerState, Score));
+			}
+		}
+
+		// Ordenar de mayor a menor score
+		PlayerScores.Sort([](const TPair<ABlasterPlayerState*, float>& A, const TPair<ABlasterPlayerState*, float>& B)
+			{
+				return A.Value > B.Value;
+			});
+
+		// Variables para guardar los 3 mejores lugares
+		TArray<ABlasterPlayerState*> FirstPlace;
+		TArray<ABlasterPlayerState*> SecondPlace;
+		TArray<ABlasterPlayerState*> ThirdPlace;
+
+		float FirstScore = -1.f;
+		float SecondScore = -1.f;
+		float ThirdScore = -1.f;
+
+		// Determinar lugares
+		for (const TPair<ABlasterPlayerState*, float>& Pair : PlayerScores)
+		{
+			float Score = Pair.Value;
+			ABlasterPlayerState* Player = Pair.Key;
+
+			if (FirstPlace.Num() == 0)
+			{
+				FirstScore = Score;
+				FirstPlace.Add(Player);
+			}
+			else if (FMath::IsNearlyEqual(Score, FirstScore))
+			{
+				FirstPlace.Add(Player);
+			}
+			else if (SecondPlace.Num() == 0)
+			{
+				SecondScore = Score;
+				SecondPlace.Add(Player);
+			}
+			else if (FMath::IsNearlyEqual(Score, SecondScore))
+			{
+				SecondPlace.Add(Player);
+			}
+			else if (ThirdPlace.Num() == 0)
+			{
+				ThirdScore = Score;
+				ThirdPlace.Add(Player);
+			}
+			else if (FMath::IsNearlyEqual(Score, ThirdScore))
+			{
+				ThirdPlace.Add(Player);
+			}
+
+			// Si ya tenemos los 3 lugares, podemos salir
+			if (ThirdPlace.Num() > 0 && FirstPlace.Num() > 0 && SecondPlace.Num() > 0)
+			{
+				break;
+			}
+		}
+
+	}
+}
+
 
 void ABlasterGameMode::OnMatchStateSet()
 {
@@ -74,6 +253,8 @@ void ABlasterGameMode::OnMatchStateSet()
 	}
 }
 
+
+
 ABlasterGameState* ABlasterGameMode::GetBlasterGameState()
 {
 	return GetGameState<ABlasterGameState>();
@@ -88,6 +269,7 @@ float ABlasterGameMode::CalculateDamage(AController* Attacker, AController* Vict
 */
 void ABlasterGameMode::EndGame(bool Teams, ETeam TeamWinner)
 {
+
 }
 
 void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacter, class ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
@@ -100,16 +282,6 @@ void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacte
 
 	BlasterGameState = BlasterGameState == nullptr ? GetGameState<ABlasterGameState>() : BlasterGameState; // check GameState
 
-	if (BlasterGameState)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Mano valido Primer Filtro"));
-
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Error segundo filtro"));
-
-	}
 	if (AttackerPlayerState && AttackerPlayerState != VictimPlayerState && BlasterGameState) 
 	{
 		TArray<ABlasterPlayerState*> PlayersCurrentlyInTheLead;
@@ -117,8 +289,6 @@ void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacte
 		{
 			PlayersCurrentlyInTheLead.Add(LeadPlayer);
 		}
-		UE_LOG(LogTemp, Warning, TEXT("Ejecutado Segundo Filtro"));
-
 		AttackerPlayerState->AddToScore(1.f);
 		BlasterGameState->UpdateTopScore(AttackerPlayerState);
 		if (BlasterGameState->TopScoringPlayers.Contains(AttackerPlayerState))
@@ -160,8 +330,6 @@ void ABlasterGameMode::PlayerEliminated(class ABlasterCharacter* ElimmedCharacte
 			BlasterPlayer->BroadcastElim(AttackerPlayerState, VictimPlayerState);
 		}
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Ejecutado PLAYER ELIMINATED EN BLASTER GAME MODE"));
-
 }
 
 void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController)
@@ -171,11 +339,12 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 		ElimmedCharacter->Reset();
 		ElimmedCharacter->Destroy();
 	}
-	if (MatchState == MatchState::Cooldown) return;
+	if (MatchState != MatchState::MatchInProgress) return;
 	if (ElimmedController)
 	{
 		TArray<AActor*> PlayerStarts;
 		UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
+		if (PlayerStarts.Num() == 0) return;
 		int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 		RestartPlayerAtPlayerStart(ElimmedController, PlayerStarts[Selection]);
 	}
@@ -198,13 +367,16 @@ void ABlasterGameMode::ResetCharacters()
 				UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
 				int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 				RestartPlayerAtPlayerStart(BPController, PlayerStarts[Selection]);
-				BPController->SetGameplay(true);
+				BPController->SetPlayerGameplayMovement(true);
 			}
 		}
 	}
 }
-
-void ABlasterGameMode::NewRound()
+/**
+ * Reinicia a todos los jugadores en posiciones aleatorias de PlayerStart.
+ * También desactiva el movimiento de gameplay en el PlayerController.
+ */
+void ABlasterGameMode::RestartPlayers()
 {
 	TArray<AActor*> PlayerStarts;
 	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
@@ -216,7 +388,7 @@ void ABlasterGameMode::NewRound()
 		{
 			int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 			RestartPlayerAtPlayerStart(BlasterPlayerController, PlayerStarts[Selection]);
-			BlasterPlayerController->SetGameplay(true);
+			//BlasterPlayerController->SetPlayerGameplayMovement(false);
 		}
 
 	}
@@ -232,7 +404,7 @@ void ABlasterGameMode::DestroyCurrentCharacters()
 			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(BlasterPlayerController->GetPawn());
 			if (BlasterCharacter)
 			{
-				BlasterCharacter->Reset();
+				//BlasterCharacter->Reset();
 				BlasterCharacter->Destroy();
 			}
 		}

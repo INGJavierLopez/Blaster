@@ -166,6 +166,11 @@ protected:
 	void FireButtonReleased();
 	void PlayHitReactMontage();
 	void GrenadeButtonPressed();
+
+	//Score Tab
+	void ScoreButtonPressed();
+	void ScoreButtonReleased();
+
 	void DropOrDestroyWeapon(AWeapon* Weapon);
 	void SetSpawnPoint();
 	void OnPlayerStateInitialized();
@@ -187,6 +192,9 @@ private:
 
 	UPROPERTY(EditAnywhere,BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UWidgetComponent* OverheadWidget;
+
+	UPROPERTY(EditAnywhere)
+	class USkeletalMeshComponent* KnifeMesh;
 
 	//Se define la replicacion mediante el uso de una funcion bindeada
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
@@ -322,6 +330,17 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = Gohst)
 	UMaterialInstanceDynamic* DynamicGohstMaterialInstance;
 
+	/*
+	*  KNIFE
+	*/
+
+	//Dynamic isntance that we can change at runtine
+	UPROPERTY(VisibleAnywhere, Category = Knife)
+	UMaterialInstanceDynamic* DynamicKnifeMaterialInstance;
+
+	//Material isntance set on the blueprint, used with the dynamic material instance
+	UPROPERTY(EditAnywhere, Category = Knife)
+	UMaterialInstance* KnifeMaterialInstance;
 
 	/**
 	*  Team Colors

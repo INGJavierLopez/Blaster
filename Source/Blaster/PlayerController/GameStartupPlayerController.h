@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Blaster/BlasterTypes/Group.h"
+#include "Blaster/BlasterTypes/ScoreTabStructures.h"
+
 #include "GameStartupPlayerController.generated.h"
 
 /**
@@ -22,8 +25,17 @@ public:
 
 	virtual void Tick(float Deltatime) override;
 	virtual void BeginPlay() override;
+	void HandleTabWidget();
+	void JoinToGroup(EGroup NewGroup);
+	UFUNCTION(Server,Reliable)
+	void ServerRequestJoinToGroup(EGroup NewGroup);
 
-	
+	void UpdateTeamScoreTab(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB);
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateScoreTab(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB);
+
+	UFUNCTION(Client, Reliable)
+	void ClientRemoveCurrentHUD();
 protected:
 	/**
 	*  Sync time between client and server

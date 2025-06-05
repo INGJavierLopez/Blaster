@@ -42,8 +42,11 @@ private:
 	UFUNCTION()
 	void OnRep_Team();
 
-	UPROPERTY(Replicated,BlueprintReadWrite,meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(ReplicatedUsing = OnRep_Ghost, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bGhost = false;
+
+	UFUNCTION()
+	void OnRep_Ghost();
 
 public:
 	FORCEINLINE ETeam GetTeam() const { return Team; }
@@ -52,4 +55,6 @@ public:
 	FORCEINLINE bool GetGhost() { return bGhost; }
 	FORCEINLINE ABlasterCharacter* GetCharacter() { return Character; }
 	FORCEINLINE void SetCharacter(ABlasterCharacter* InCharacter) { Character = InCharacter; }
+	FORCEINLINE float GetDefeats() { return Defeats; }
+
 };

@@ -57,16 +57,25 @@ public:
 	UTextBlock* GrenadesText;
 
 	UPROPERTY(meta = (BindWidget))
+	UTextBlock* CurrentRoundText;
+
+	UPROPERTY(meta = (BindWidget))
 	class UImage* HighPingImage;
 
 	UPROPERTY(meta = (BindWidget))
 	class UImage* TeamsScoreImage;
 
 	UPROPERTY(meta = (BindWidget))
-	class UImage* BlueTeamScoreImage;
+	UImage* BlueTeamScoreImage;
 
 	UPROPERTY(meta = (BindWidget))
-	class UImage* RedTeamScoreImage;
+	UImage* RedTeamScoreImage;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* WhiteBG1;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* WhiteBG2;
 
 	UPROPERTY(meta = (BindWidgetAnim),Transient)
 	UWidgetAnimation* HighPingAnimation;

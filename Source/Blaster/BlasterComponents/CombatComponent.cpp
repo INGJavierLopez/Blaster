@@ -889,12 +889,12 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 		}
 		else
 		{
-			HitTarget = (End - Start) * 500;
+			HitTarget = End;
 		}
 
 		if (Character)
 		{
-			//DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Green, false,0.1);
+			DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Green, false,0.1);
 
 		}
 	}

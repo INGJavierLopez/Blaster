@@ -15,6 +15,7 @@
 #include "BlasterAnimInstance.h"
 #include "Blaster/Blaster.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
+#include "Blaster/PlayerController/GameStartupPlayerController.h"
 #include "Blaster/GameMode/BlasterGameMode.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -44,6 +45,9 @@ ABlasterCharacter::ABlasterCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+	KnifeMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("KnifeMesh"));
+	KnifeMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("KnifeSocket"));
 
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -190,12 +194,18 @@ void ABlasterCharacter::BeginPlay()
 	{
 		AttachedGrenade->SetVisibility(false);
 	}
+	if (BlasterPlayerState)
+	{
+		if (BlasterPlayerState->GetGhost())
+		{
+			SetGhostMode();
+		}
+	}
 }
 
 void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 	CalculateVisibility();
 	RotateInPlace(DeltaTime);
 	HideCameraIfCharacterClose();
@@ -221,16 +231,18 @@ void ABlasterCharacter::Elim(bool bPlayerLeftGame)
 void ABlasterCharacter::Destroyed()
 {
 	Super::Destroyed();
+
 	if (ElimBotComponent)
 	{
 		ElimBotComponent->DestroyComponent();
 	}
 	//verificamos que la partida siga en curso para eviar destruir el arma
 	BlasterGameMode = BlasterGameMode == nullptr ? GetWorld()->GetAuthGameMode<ABlasterGameMode>() : BlasterGameMode;
-	bool bMatchNotInProgress = BlasterGameMode && BlasterGameMode->GetMatchState() != MatchState::InProgress;
+	bool bMatchNotInProgress = BlasterGameMode && BlasterGameMode->GetMatchState() != MatchState::MatchInProgress;
 
 	if (Combat && Combat->EquippedWeapon && bMatchNotInProgress)
 	{
+		DropOrDestroyWeapons();
 		Combat->EquippedWeapon->Destroy();
 	}
 }
@@ -484,37 +496,37 @@ void ABlasterCharacter::SetTeamColor(ETeam Team)
 
 void ABlasterCharacter::SetGhostMode()
 {
-	if (GetGhost()) 
+	if (RedMaterial)
 	{
-		if (RedMaterial)
+		DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(RedMaterial, this);
+		if (DynamicGohstMaterialInstance)
 		{
-			DynamicGohstMaterialInstance = UMaterialInstanceDynamic::Create(RedMaterial, this);
-			if (DynamicGohstMaterialInstance)
-			{
-
-			}
-			GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
-			DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"),Visibility);
 
 		}
-		DissolveMaterialInstance = RedDissolveMatInst;
-		/*
-		//Timer
-		GetWorld()->GetTimerManager().SetTimer(
-			VisibilityTimerHandle,
-			this,
-			&ABlasterCharacter::CalculateVisibility,
-			0.05f,  // Interval in seconds
-			true    // Loop the timer
-		);
-		*/
-	}	
+		GetMesh()->SetMaterial(0, DynamicGohstMaterialInstance);
+		DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
+
+	}
+	DissolveMaterialInstance = RedDissolveMatInst;
+	if (KnifeMaterialInstance)
+	{
+		DynamicKnifeMaterialInstance = UMaterialInstanceDynamic::Create(KnifeMaterialInstance, this);
+		KnifeMesh->SetMaterial(0, DynamicKnifeMaterialInstance);
+		DynamicKnifeMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), Visibility);
+
+	}
 	if (GetCharacterMovement())
 	{
 		GetCharacterMovement()->MaxWalkSpeed = GetCharacterMovement()->MaxWalkSpeed * 2.5f;
 		GetCharacterMovement()->MaxWalkSpeedCrouched = GetCharacterMovement()->MaxWalkSpeedCrouched * 2.5f;
 	}
-
+	if (Combat)
+	{
+		if (Combat->EquippedWeapon)
+		{
+			DropOrDestroyWeapon(Combat->EquippedWeapon);
+		}
+	}
 }
 
 
@@ -598,6 +610,9 @@ void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction("Fire", IE_Released, this, &ABlasterCharacter::FireButtonReleased);
 	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &ABlasterCharacter::ReloadButtonPressed);
 	PlayerInputComponent->BindAction("ThrowGrenade", IE_Pressed, this, &ABlasterCharacter::GrenadeButtonPressed);
+	PlayerInputComponent->BindAction("Score", IE_Released, this, &ABlasterCharacter::ScoreButtonReleased);
+	PlayerInputComponent->BindAction("Score", IE_Pressed, this, &ABlasterCharacter::ScoreButtonPressed);
+
 
 
 }
@@ -744,6 +759,28 @@ void ABlasterCharacter::GrenadeButtonPressed()
 	{
 		if (Combat->bHoldingTheFlag) return;
 		Combat->ThrowGrenade();
+	}
+}
+
+void ABlasterCharacter::ScoreButtonPressed()
+{
+	AGameStartupPlayerController* GameStartupPlayerController = Cast<AGameStartupPlayerController>(GetLocalViewingPlayerController());
+	if (GameStartupPlayerController)
+	{
+		GameStartupPlayerController->HandleTabWidget();
+		return;
+	}
+	if (BlasterPlayerController)
+	{
+		BlasterPlayerController->HandleTabWidget(true);
+	}
+}
+
+void ABlasterCharacter::ScoreButtonReleased()
+{
+	if (BlasterPlayerController)
+	{
+		BlasterPlayerController->HandleTabWidget(false);
 	}
 }
 
@@ -1163,21 +1200,15 @@ void ABlasterCharacter::SpawnDefaultWeapon()
 
 void ABlasterCharacter::EnableMovement()
 {
-	if (Combat)
-	{
-		bDisableGameplay = false;
-		//bUseControllerRotationYaw = true;
-		//GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-	}
+	bDisableGameplay = false;
 }
 
 void ABlasterCharacter::DisableMovement()
 {
+	bDisableGameplay = true;
 	if (Combat)
 	{
-		bDisableGameplay = true;
 		Combat->FireButtonPressed(false);
-		GetCharacterMovement()->DisableMovement();
 	}
 	
 }
@@ -1221,6 +1252,7 @@ void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
 	{
 		DynamicDissolveMaterialInstance->SetScalarParameterValue(TEXT("Dissolve"), DissolveValue);
 	}
+
 }
 
 void ABlasterCharacter::StartDissolve()
@@ -1367,6 +1399,11 @@ void ABlasterCharacter::HandleChangeVisibility(float NewVisibility)
 	if (DynamicGohstMaterialInstance)
 	{
 		DynamicGohstMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), NewVisibility);
+	}
+	if (DynamicKnifeMaterialInstance)
+	{
+		DynamicKnifeMaterialInstance->SetScalarParameterValue(TEXT("Visibility"), NewVisibility);
+
 	}
 }
 

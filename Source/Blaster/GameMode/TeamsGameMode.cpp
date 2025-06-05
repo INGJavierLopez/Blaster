@@ -6,23 +6,31 @@
 #include "Blaster/Playerstate/BlasterPlayerState.h"
 #include "Blaster/PlayerController/BlasterPlayerController.h"
 #include "Blaster/Character/BlasterCharacter.h"
+#include "Blaster/GameInstance/BlasterGameInstance.h"
+#include "Blaster/BlasterTypes/ScoreTabStructures.h"
+#include "Blaster/GameInstance/BlasterGameInstance.h"
+
 #include "Kismet/GameplayStatics.h"
 
-void ATeamsGameMode::Debug(bool Active,float DeltaTime)
+void ATeamsGameMode::Debug(float DeltaTime)
 {
-	if (!Active) return;
+	if (!bShowDebugMessages) return;
+	FString Data;
 	if (MatchState == MatchState::InProgress)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, TEXT("MatchState : InProgress"));
+		Data = FString::Printf(TEXT("MatchState : InProgress: %.2f"), CountdownTime);
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Data);
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, TEXT("MatchState : Cooldown"));
+		Data = FString::Printf(TEXT("MatchState : Cooldown: %.2f"), CountdownTime);
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Data);
 
 	}
 	else if (MatchState == MatchState::NewRound)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, TEXT("MatchState : NewRound"));
+		Data = FString::Printf(TEXT("MatchState : NewRound: %.2f"), CountdownTime);
+		GEngine->AddOnScreenDebugMessage(-1, DeltaTime, FColor::Blue, Data);
 
 	}
 	return;
@@ -47,84 +55,8 @@ ATeamsGameMode::ATeamsGameMode()
 
 void ATeamsGameMode::Tick(float DeltaTime)
 {
-	AGameMode::Tick(DeltaTime);
-	Debug(true, DeltaTime);
-	if (MatchState == MatchState::WaitingToStart)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Estoy en Waiting To Start"));
-		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f)
-		{
-			RoundStartTime = GetWorld()->GetTimeSeconds();
-			StartMatch();
-		}
-	}
-	else if (MatchState == MatchState::InProgress)
-	{
-		CountdownTime = MatchTime - (GetWorld()->GetTimeSeconds() + LevelStartingTime - RoundStartTime);
-		if (CountdownTime <= 0.f)
-		{
-			EndMatchTime = GetWorld()->GetTimeSeconds();
-			bRoundHasEnded = true;
-			//Se determina si se acabo el juego
-			
-			//Se verifican los Scores para ver si algun team ha ganado
-			ETeam CheckWinnerTeam = CheckIfTeamHasWon();
-			if (CheckWinnerTeam == ETeam::ET_NoTeam)
-			{
-				ShowRoundWinner();
-				SetMatchState(MatchState::Cooldown);
-			}
-			else
-			{
-				EndGame(true, CheckWinnerTeam);
-				DestroyCurrentCharacters();
-				SetMatchState(MatchState::EndGame);
-			}
-		}
-	}
-	else if (MatchState == MatchState::Cooldown)
-	{
-		if (GetBlasterGameState() == nullptr) return;
-		if (bRoundHasEnded) //Hacer una vez al termino de una ronda
-		{
-			DestroyCurrentCharacters();
-
-		}
-		//Timer para dar paso al siguiente evento
-		CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
-		if (CountdownTime <= 0.f)
-		{
-			EndMatchTime = GetWorld()->GetTimeSeconds();
-			//Destruir el pawn de los jugadores
-			SetMatchState(MatchState::NewRound);
-		}
-	}
-	else if (MatchState == MatchState::NewRound)
-	{
-		if (bNewRound) //Hacer una vez al inicio de una nueva ronda
-		{
-			bNewRound = false;
-			//Reaparecer a todos los jugadores
-			ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
-			if (BGameState)
-			{
-				BGameState->ResetTeamScores();
-			}
-		}
-		//
-		CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - EndMatchTime);
-		if (CountdownTime <= 0.f)
-		{
-			NewRound();
-			RoundStartTime = GetWorld()->GetTimeSeconds();
-			SetMatchState(MatchState::WaitingToStart);
-		}
-	}
-	else if (MatchState == MatchState::EndGame)
-	{
-		//El juego se termina, se muestra el ganador y se sacan a todos los jugadores
-	}
+	Super::Tick(DeltaTime);
+	Debug(DeltaTime);
 	
 }
 
@@ -173,27 +105,69 @@ void ATeamsGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
 
-	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!BlasterGameInstance) return;
 
-	if (BGameState)
+	if (NewPlayer->PlayerState == nullptr) return;
+
+	FString PlayerID = NewPlayer->PlayerState->GetUniqueId()->ToString();
+	EGroup Grupo = BlasterGameInstance->GetPlayerGroup(PlayerID);
+
+	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	if (BGameState == nullptr) return;
+
+	ABlasterPlayerState* BPState = NewPlayer->GetPlayerState<ABlasterPlayerState>();
+	if (BPState == nullptr) return;
+
+	if (BlasterGameInstance->PlayerGroupMap.IsEmpty()) // Si no hay grupos definidos
 	{
-		ABlasterPlayerState* BPState = NewPlayer->GetPlayerState<ABlasterPlayerState>();
-		if (BPState && BPState->GetTeam() == ETeam::ET_NoTeam)
+		if (BGameState->BlueTeam.Num() == BGameState->RedTeam.Num())
 		{
-			if (BGameState->BlueTeam.Num() >= BGameState->RedTeam.Num())
-			{
-				BGameState->RedTeam.AddUnique(BPState);
-				BPState->SetTeam(ETeam::ET_RedTeam);
-			}
-			else
-			{
-				BGameState->BlueTeam.AddUnique(BPState);
-				BPState->SetTeam(ETeam::ET_BlueTeam);
-			}
+			BGameState->BlueTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_BlueTeam);
 		}
+		else if (BGameState->BlueTeam.Num() < BGameState->RedTeam.Num())
+		{
+			BGameState->BlueTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_BlueTeam);
+		}
+		else
+		{
+			BGameState->RedTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_RedTeam);
+		}
+		return;
 	}
 
+	if (Grupo == EGroup::EG_A)
+	{
+		if (bGroupAHasBlueTeam)
+		{
+			BGameState->BlueTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_BlueTeam);
+		}
+		else
+		{
+			BGameState->RedTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_RedTeam);
+		}
+	}
+	else if (Grupo == EGroup::EG_B)
+	{
+		if (bGroupAHasBlueTeam)
+		{
+			BGameState->RedTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_RedTeam);
+		}
+		else
+		{
+			BGameState->BlueTeam.AddUnique(BPState);
+			BPState->SetTeam(ETeam::ET_BlueTeam);
+		}
+	}
 }
+
+
 
 void ATeamsGameMode::Logout(AController* Exiting)
 {
@@ -215,31 +189,229 @@ void ATeamsGameMode::Logout(AController* Exiting)
 
 
 
-void ATeamsGameMode::HandleMatchHasStarted()
+void ATeamsGameMode::HandleWaitingToStart(float DeltaTime)
 {
-	Super::HandleMatchHasStarted();
-
-	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
-
-	if (BGameState)
+	CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+	if (CountdownTime <= 0.f)
 	{
-		
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		bFirstRound = true;
+		StartMatch();
+	}
+}
+
+void ATeamsGameMode::HandleMatchHasStarted(float DeltaTime)
+{
+	bNewRound = true;
+	StateStartTime = GetWorld()->GetTimeSeconds();
+	SetMatchState(MatchState::NewRound);
+}
+
+void ATeamsGameMode::HandleNewRound(float DeltaTime)
+{
+	if (bNewRound) //Hacer una vez al inicio de una nueva ronda
+	{
+		bNewRound = false;
+		//Reaparecer a todos los jugadores
+		//Mostrar el widget de ronda
+		//No se pueden mover los panas
+		ABlasterGameState* BGameState = GetGameState<ABlasterGameState>();
+		if (BGameState)
+		{
+			BGameState->ResetTeamScores();
+		}
+		//Reasignar Judores a su posicion de defecto
+		RestartPlayers();
+		AssingGroupsToNewTeam();
+		UpdateTeamScoreWidget();
+
+	}
+	CountdownTime = NewRoundTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+
+
+		bFirstRound = false;
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		SetMatchState(MatchState::MatchInProgress);
+	}
+}
+
+void ATeamsGameMode::HandleMatchInProgress(float DeltaTime)
+{
+	CountdownTime = MatchTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		bRoundHasEnded = true;
+		//Se determina si se acabo el juego
+
+		//Se verifican los Scores para ver si algun team ha ganado
+		ETeam CheckWinnerTeam = CheckIfTeamHasWon();
+		if (CheckWinnerTeam == ETeam::ET_NoTeam)
+		{
+			ShowRoundWinner();
+			SetMatchState(MatchState::Cooldown);
+		}
+		else
+		{
+			EndGame(true, CheckWinnerTeam);
+			DestroyCurrentCharacters();
+			SetMatchState(MatchState::EndGame);
+		}
+	}
+}
+
+void ATeamsGameMode::HandleCooldown(float DeltaTime)
+{
+	if (bRoundHasEnded) //Hacer una vez al termino de una ronda
+	{
+		bRoundHasEnded = false;
+		DestroyCurrentCharacters();
+		AssingGroupsToNewTeam();
+		ResetCharacters();
+		bNewRound = true;
+
+	}
+	//Timer para dar paso al siguiente evento
+	CountdownTime = CooldownTime - (GetWorld()->GetTimeSeconds() - StateStartTime);
+	if (CountdownTime <= 0.f)
+	{
+		StateStartTime = GetWorld()->GetTimeSeconds();
+		//Destruir el pawn de los jugadores
+		SetMatchState(MatchState::NewRound);
+	}
+}
+
+void ATeamsGameMode::HandleEndGame(float DeltaTime)
+{
+
+}
+
+void ATeamsGameMode::AssingGroupsToNewTeam()
+{
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!BlasterGameInstance) return;
+	ABlasterGameState* BGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+	if (BGameState == nullptr) return;
+	if (BlasterGameInstance->PlayerGroupMap.IsEmpty() && bTeamsInitialized)//No Groups Defined DEBUG Prpouses
+	{
+		bTeamsInitialized = false;
+
 		for (auto PState : BGameState->PlayerArray)
 		{
 			ABlasterPlayerState* BPState = Cast<ABlasterPlayerState>(PState.Get());
-			if (BPState && BPState->GetTeam() == ETeam::ET_NoTeam)
+			if (BGameState->BlueTeam.Num() == BGameState->RedTeam.Num())
 			{
-				if (BGameState->BlueTeam.Num() >= BGameState->RedTeam.Num())
-				{
-					BGameState->RedTeam.AddUnique(BPState);
-					BPState->SetTeam(ETeam::ET_RedTeam);
-				}
-				else
-				{
-					BGameState->BlueTeam.AddUnique(BPState);
-					BPState->SetTeam(ETeam::ET_BlueTeam);
-				}
+				BGameState->BlueTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_BlueTeam);
 			}
+			else if (BGameState->BlueTeam.Num() < BGameState->RedTeam.Num())
+			{
+				BGameState->BlueTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_BlueTeam);
+			}
+			else
+			{
+				BGameState->RedTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_RedTeam);
+			}
+		}
+		return;
+	}
+	if (!bSwitchTeams) return;
+
+	BGameState->RedTeam.Empty();
+	BGameState->BlueTeam.Empty();
+
+	for (auto PState : BGameState->PlayerArray)
+	{
+		ABlasterPlayerState* BPState = Cast<ABlasterPlayerState>(PState.Get());
+		FString PlayerID = BPState->GetUniqueId()->ToString();
+
+		EGroup Group = BlasterGameInstance->GetPlayerGroup(PlayerID);
+		if (Group == EGroup::EG_A)
+		{
+			if (bGroupAHasBlueTeam)
+			{
+				BGameState->BlueTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_BlueTeam);
+			}
+			else
+			{
+				BGameState->BlueTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_RedTeam);
+			}
+
+		}
+		else if (Group == EGroup::EG_B)
+		{
+			if (bGroupAHasBlueTeam)
+			{
+				BGameState->BlueTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_RedTeam);
+
+			}
+			else
+			{
+				BGameState->BlueTeam.AddUnique(BPState);
+				BPState->SetTeam(ETeam::ET_BlueTeam);
+			}
+		}
+	}
+
+	bGroupAHasBlueTeam = !bGroupAHasBlueTeam;
+}
+
+
+void ATeamsGameMode::UpdateTeamScoreWidget()
+{
+	UBlasterGameInstance* BlasterGameInstance = Cast<UBlasterGameInstance>(GetGameInstance());
+	if (!BlasterGameInstance) return;
+
+	TArray<FScoreSlotInfo> GroupA;
+	TArray<FScoreSlotInfo> GroupB;
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+
+		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayerController == nullptr) return;
+
+		ABlasterPlayerState* BPlayerState = BlasterPlayerController->GetPlayerState<ABlasterPlayerState>();
+		if (BPlayerState == nullptr) return;
+
+		FScoreSlotInfo NewPlayerInfo;
+		NewPlayerInfo.PlayerName = BPlayerState->GetPlayerName();
+		NewPlayerInfo.Kills = FString::Printf(TEXT("%d"), (int)BPlayerState->GetScore());
+		NewPlayerInfo.Deaths = FString::Printf(TEXT("%d"), (int)BPlayerState->GetDefeats());
+
+		FString PlayerID = BPlayerState->GetUniqueId()->ToString();
+
+		if (BlasterGameInstance->PlayerGroupMap.IsEmpty())//No Groups Defined
+		{
+			if (BPlayerState->GetTeam() == ETeam::ET_BlueTeam) GroupA.Add(NewPlayerInfo);
+			else if (BPlayerState->GetTeam() == ETeam::ET_RedTeam) GroupB.Add(NewPlayerInfo);
+		}
+		else
+		{
+			EGroup Grupo = BlasterGameInstance->GetPlayerGroup(PlayerID);
+			if (Grupo == EGroup::EG_A) GroupA.Add(NewPlayerInfo);
+			else if (Grupo == EGroup::EG_B) GroupB.Add(NewPlayerInfo);
+		}
+
+		MulticastUpdateScoreTab(GroupA,GroupB);
+	}
+}
+
+void ATeamsGameMode::MulticastUpdateScoreTab_Implementation(const TArray<FScoreSlotInfo>& GroupA, const TArray<FScoreSlotInfo>& GroupB)
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayerController = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayerController)
+		{
+			BlasterPlayerController->UpdateTeamScoreTab(GroupA, GroupB);
 		}
 	}
 }
@@ -284,6 +456,7 @@ void ATeamsGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlas
 			BGameState->RedTeamScores();
 		}
 	}
+	UpdateTeamScoreWidget();
 }
 
 void ATeamsGameMode::EndGame(bool Teams, ETeam TeamWinner)

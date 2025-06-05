@@ -31,7 +31,7 @@ class BLASTER_API ABlasterHUD : public AHUD
 public:
 	virtual void DrawHUD() override;
 
-	//CHARACTER OVERLAY
+	/////////////CHARACTER OVERLAY
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<class UUserWidget> CharacterOverlayClass;
 	void AddCharacterOverlay();
@@ -39,7 +39,7 @@ public:
 	UPROPERTY()
 	class UCharacterOverlay* CharacterOverlay;
 
-	// ANNOUNCEMENT
+	////////// ANNOUNCEMENT
 	UPROPERTY(EditAnywhere, Category = "Announcements")
 	TSubclassOf<UUserWidget> AnnouncementClass;
 
@@ -50,16 +50,43 @@ public:
 	void AddElimAnnouncement(FString ElimText);
 	void LoadAnnouncement();
 
-	//Lobby
+	////////////// SELECT TEAM TAB
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	TSubclassOf<class UUserWidget> SelectTeamClass;
 
-	//CHARACTER OVERLAY
+	class USelectTeam* SelectTeam;
+	void AddSelectTeam();
+
+	//////////////  SCORE TAB
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	TSubclassOf<class UUserWidget> ScoreTabClass;
+
+	class UScoreTab* ScoreTab;
+	void AddScoreTab();
+
+	////////////// TEAM Score Tab
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	TSubclassOf<class UUserWidget> TeamScoreTabClass;
+
+	class UTeamScoreTab* TeamScoreTab;
+	void AddTeamScoreTab();
+
+	//////////////  LOBBY HUD
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<class UUserWidget> LobbyHUDClass;
 	UPROPERTY()
 	class ULobbyHUD* LobbyHUD;
 	void AddLobbyHUD();
 
-	//EndRoundWidget
+
+	////////////// NEW ROUND
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	TSubclassOf<class UUserWidget> NewRoundClass;
+
+	class UNewRound* NewRound;
+	void AddNewRound();
+
+	/////////////// END ROUND
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<class UUserWidget> EndRoundClass;
 
@@ -67,7 +94,7 @@ public:
 	class UEndRound* EndRound;
 	void AddEndRound();
 
-	//EndGame
+	////////////////EndGame
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<class UUserWidget> EndGameClass;
 
@@ -77,6 +104,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
 private:
 	UPROPERTY()
 	APlayerController* OwningPlayer;

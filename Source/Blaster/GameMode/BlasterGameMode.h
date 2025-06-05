@@ -9,7 +9,8 @@
 
 namespace MatchState
 {
-	extern BLASTER_API const FName NewRound;
+	extern BLASTER_API const FName NewRound; // Prepare Players for the next Round
+	extern BLASTER_API const FName MatchInProgress; //Players are in matcn
 	extern BLASTER_API const FName Cooldown; // Match duration has been reached. display winner and begin timer.
 	extern BLASTER_API const FName EndGame;
 }
@@ -28,7 +29,7 @@ public:
 	virtual void RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController);
 	UFUNCTION(BlueprintCallable)
 	virtual void ResetCharacters();
-	virtual void NewRound();
+	virtual void RestartPlayers();
 	virtual void DestroyCurrentCharacters();
 	virtual void RequestEndRound();
 	void PlayerLeftGame(class ABlasterPlayerState* PlayerLeaving);
@@ -56,23 +57,34 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	bool bGhostGame = false;
 
-	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	float CountdownTime = 0.f;
-
-	float EndMatchTime = 0.f;
-
-	float RoundStartTime = 0.f;
-
-	bool bNewRound = false;
-	bool bRoundHasEnded = false;
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;
+	UPROPERTY(EditDefaultsOnly, Category = "Debug")
+	bool bShowDebugMessages = false;
+	virtual void Debug(float DeltaTime);
+	// Funciones virtuales para cada estado del juego
+	virtual void HandleWaitingToStart(float DeltaTime);
+	virtual void HandleMatchHasStarted(float DeltaTime);
+	virtual void HandleMatchInProgress(float DeltaTime);
+	virtual void HandleNewRound(float DeltaTime);
+	virtual void HandleCooldown(float DeltaTime);
+	virtual void HandleEndGame(float DeltaTime);
+	virtual void CalculateWinners();
 
+	UPROPERTY(BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	float CountdownTime = 0.f;
+	float StateStartTime = 0.f;
+	float EndMatchTime = 0.f;
+	bool bFirstRound = true;
+	bool bNewRound = false;
+	bool bRoundHasEnded = false;
 private:
 	class ABlasterGameState* BlasterGameState;
 
 public:
 	FORCEINLINE float  GetCountdownTime() { return CountdownTime; }
+	FORCEINLINE float  GetStateStartTime() { return StateStartTime; }
 	ABlasterGameState* GetBlasterGameState();
 };

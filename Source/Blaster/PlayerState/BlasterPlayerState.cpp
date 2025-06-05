@@ -92,8 +92,10 @@ void ABlasterPlayerState::OnRep_Defeats()
 	}
 }
 
-void ABlasterPlayerState::OnRep_Team()
+
+void ABlasterPlayerState::SetTeam(ETeam TeamToSet)
 {
+	Team = TeamToSet;
 	ABlasterCharacter* BCharacter = Cast<ABlasterCharacter>(GetPawn());
 	if (BCharacter)
 	{
@@ -101,9 +103,8 @@ void ABlasterPlayerState::OnRep_Team()
 	}
 }
 
-void ABlasterPlayerState::SetTeam(ETeam TeamToSet)
+void ABlasterPlayerState::OnRep_Team()
 {
-	Team = TeamToSet;
 	ABlasterCharacter* BCharacter = Cast<ABlasterCharacter>(GetPawn());
 	if (BCharacter)
 	{
@@ -116,10 +117,20 @@ void ABlasterPlayerState::SetGhost(bool NewGhost)
 	bGhost = NewGhost;
 	if (bGhost)
 	{
-		if (Character)
+		ABlasterCharacter* BCharacter = Cast<ABlasterCharacter>(GetPawn());
+		if (BCharacter)
 		{
-			Character->SetGhostMode();
+			BCharacter->SetGhostMode();
 		}
 	}
 }
 
+void ABlasterPlayerState::OnRep_Ghost()
+{
+	ABlasterCharacter* BCharacter = Cast<ABlasterCharacter>(GetPawn());
+
+	if (BCharacter)
+	{
+		BCharacter->SetGhostMode();
+	}
+}
